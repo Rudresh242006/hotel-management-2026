@@ -289,19 +289,6 @@ function SectionCard({ title, children }: { title: string; children: React.React
   );
 }
 
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-xl border bg-card shadow-sm">
-      <header
-        className="rounded-t-xl px-4 py-3 text-sm font-bold uppercase tracking-wider"
-        style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
-      >
-        {title}
-      </header>
-      <div className="p-4">{children}</div>
-    </section>
-  );
-}
 
 function PriceEditor() {
   const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
