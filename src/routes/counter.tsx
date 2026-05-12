@@ -15,7 +15,8 @@ import {
   type OrderItem,
   type TableRow,
 } from "@/lib/restaurant";
-import { ChefHat, CheckCircle2, Plus, Trash2, Settings, ClipboardList } from "lucide-react";
+import { ChefHat, CheckCircle2, Plus, Trash2, Settings, ClipboardList, DollarSign, Table as TableIcon, UtensilsCrossed } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 export const Route = createFileRoute("/counter")({
   component: CounterPage,
@@ -234,11 +235,43 @@ function StatusBadge({ status }: { status: Order["status"] }) {
 
 function AdminPanel() {
   return (
-    <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-3">
-      <PriceEditor />
-      <TableManager />
-      <MenuItemManager />
+    <main className="mx-auto max-w-4xl px-6 py-8">
+      <Accordion type="single" collapsible defaultValue="prices" className="space-y-3">
+        <AdminAccordionItem value="prices" title="Menu Price Editor" icon={<DollarSign className="h-4 w-4" />}>
+          <PriceEditor />
+        </AdminAccordionItem>
+        <AdminAccordionItem value="tables" title="Table Manager" icon={<TableIcon className="h-4 w-4" />}>
+          <TableManager />
+        </AdminAccordionItem>
+        <AdminAccordionItem value="menu" title="Menu Item Manager" icon={<UtensilsCrossed className="h-4 w-4" />}>
+          <MenuItemManager />
+        </AdminAccordionItem>
+      </Accordion>
     </main>
+  );
+}
+
+function AdminAccordionItem({
+  value,
+  title,
+  icon,
+  children,
+}: {
+  value: string;
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <AccordionItem value={value} className="overflow-hidden rounded-xl border bg-card shadow-sm">
+      <AccordionTrigger
+        className="px-4 py-3 text-sm font-bold uppercase tracking-wider hover:no-underline"
+        style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+      >
+        <span className="flex items-center gap-2">{icon} {title}</span>
+      </AccordionTrigger>
+      <AccordionContent className="p-4">{children}</AccordionContent>
+    </AccordionItem>
   );
 }
 
@@ -255,6 +288,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
     </section>
   );
 }
+
 
 function PriceEditor() {
   const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
@@ -277,46 +311,46 @@ function PriceEditor() {
     toast.success(`Updated ${item.name}`);
   }
 
+  const allCategories = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)]));
+
   return (
-    <SectionCard title="Menu Price Editor">
-      <div className="max-h-[70vh] space-y-4 overflow-y-auto">
-        {CATEGORIES.map((cat) => {
-          const items = menu.filter((m) => m.category === cat);
-          if (!items.length) return null;
-          return (
-            <div key={cat}>
-              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</p>
-              <ul className="space-y-2">
-                {items.map((m) => {
-                  const dirty = edits[m.id] !== undefined;
-                  return (
-                    <li key={m.id} className="flex items-center gap-2">
-                      <span className="flex-1 truncate text-sm">{m.name}</span>
-                      <span className="text-xs text-muted-foreground">$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={dirty ? edits[m.id] : Number(m.price).toFixed(2)}
-                        onChange={(e) => setEdits((s) => ({ ...s, [m.id]: e.target.value }))}
-                        className="w-20 rounded-md border bg-background px-2 py-1 text-sm"
-                      />
-                      <button
-                        disabled={!dirty}
-                        onClick={() => savePrice(m)}
-                        className="rounded-md px-2 py-1 text-xs font-semibold disabled:opacity-30"
-                        style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
-                      >
-                        Save
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
-    </SectionCard>
+    <div className="max-h-[60vh] space-y-4 overflow-y-auto">
+      {allCategories.map((cat) => {
+        const items = menu.filter((m) => m.category === cat);
+        if (!items.length) return null;
+        return (
+          <div key={cat}>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</p>
+            <ul className="space-y-2">
+              {items.map((m) => {
+                const dirty = edits[m.id] !== undefined;
+                return (
+                  <li key={m.id} className="flex items-center gap-2">
+                    <span className="flex-1 truncate text-sm">{m.name}</span>
+                    <span className="text-xs text-muted-foreground">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={dirty ? edits[m.id] : Number(m.price).toFixed(2)}
+                      onChange={(e) => setEdits((s) => ({ ...s, [m.id]: e.target.value }))}
+                      className="w-20 rounded-md border bg-background px-2 py-1 text-sm"
+                    />
+                    <button
+                      disabled={!dirty}
+                      onClick={() => savePrice(m)}
+                      className="rounded-md px-2 py-1 text-xs font-semibold disabled:opacity-30"
+                      style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+                    >
+                      Save
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -343,7 +377,7 @@ function TableManager() {
   }
 
   return (
-    <SectionCard title="Table Manager">
+    <div>
       <div className="mb-3 flex justify-end">
         <button
           onClick={addTable}
@@ -353,7 +387,7 @@ function TableManager() {
           <Plus className="h-4 w-4" /> Add Table
         </button>
       </div>
-      <ul className="max-h-[60vh] space-y-1 overflow-y-auto">
+      <ul className="max-h-[50vh] space-y-1 overflow-y-auto">
         {tables.map((t) => {
           const active = orders.some((o) => o.table_id === t.id && o.status !== "billed");
           return (
@@ -376,31 +410,37 @@ function TableManager() {
           );
         })}
       </ul>
-    </SectionCard>
+    </div>
   );
 }
 
+const NEW_CATEGORY = "__new__";
+
 function MenuItemManager() {
   const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
+  const allCategories = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)]));
   const [name, setName] = useState("");
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
+  const [newCategory, setNewCategory] = useState("");
   const [price, setPrice] = useState("");
 
   async function addItem() {
     const p = Number(price);
-    if (!name.trim() || isNaN(p) || p < 0) {
-      toast.error("Enter a valid name and price");
+    const finalCategory = category === NEW_CATEGORY ? newCategory.trim() : category;
+    if (!name.trim() || isNaN(p) || p < 0 || !finalCategory) {
+      toast.error("Enter valid name, category, and price");
       return;
     }
     const { error } = await supabase
       .from("menu_items")
-      .insert({ name: name.trim(), category, price: p, is_available: true });
+      .insert({ name: name.trim(), category: finalCategory, price: p, is_available: true });
     if (error) {
       toast.error(error.message);
       return;
     }
     setName("");
     setPrice("");
+    setNewCategory("");
     toast.success(`Added ${name}`);
   }
 
@@ -411,7 +451,7 @@ function MenuItemManager() {
   }
 
   return (
-    <SectionCard title="Menu Item Manager">
+    <div>
       <div className="mb-4 space-y-2 rounded-lg border bg-muted/30 p-3">
         <input
           value={name}
@@ -425,9 +465,10 @@ function MenuItemManager() {
             onChange={(e) => setCategory(e.target.value)}
             className="flex-1 rounded-md border bg-background px-2 py-1.5 text-sm"
           >
-            {CATEGORIES.map((c) => (
+            {allCategories.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
+            <option value={NEW_CATEGORY}>+ Add new category…</option>
           </select>
           <input
             type="number"
@@ -438,6 +479,14 @@ function MenuItemManager() {
             className="w-24 rounded-md border bg-background px-2 py-1.5 text-sm"
           />
         </div>
+        {category === NEW_CATEGORY && (
+          <input
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            placeholder="New category name (e.g. Salads, Soups)"
+            className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+          />
+        )}
         <button
           onClick={addItem}
           className="inline-flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold"
@@ -446,7 +495,7 @@ function MenuItemManager() {
           <Plus className="h-4 w-4" /> Add Item
         </button>
       </div>
-      <ul className="max-h-[50vh] space-y-1 overflow-y-auto">
+      <ul className="max-h-[45vh] space-y-1 overflow-y-auto">
         {menu.map((m) => (
           <li key={m.id} className="flex items-center justify-between rounded-md border px-3 py-2">
             <div className="min-w-0 flex-1">
@@ -464,6 +513,6 @@ function MenuItemManager() {
           </li>
         ))}
       </ul>
-    </SectionCard>
+    </div>
   );
 }
