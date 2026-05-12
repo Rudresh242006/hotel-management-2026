@@ -311,46 +311,46 @@ function PriceEditor() {
     toast.success(`Updated ${item.name}`);
   }
 
+  const allCategories = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)]));
+
   return (
-    <SectionCard title="Menu Price Editor">
-      <div className="max-h-[70vh] space-y-4 overflow-y-auto">
-        {CATEGORIES.map((cat) => {
-          const items = menu.filter((m) => m.category === cat);
-          if (!items.length) return null;
-          return (
-            <div key={cat}>
-              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</p>
-              <ul className="space-y-2">
-                {items.map((m) => {
-                  const dirty = edits[m.id] !== undefined;
-                  return (
-                    <li key={m.id} className="flex items-center gap-2">
-                      <span className="flex-1 truncate text-sm">{m.name}</span>
-                      <span className="text-xs text-muted-foreground">$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={dirty ? edits[m.id] : Number(m.price).toFixed(2)}
-                        onChange={(e) => setEdits((s) => ({ ...s, [m.id]: e.target.value }))}
-                        className="w-20 rounded-md border bg-background px-2 py-1 text-sm"
-                      />
-                      <button
-                        disabled={!dirty}
-                        onClick={() => savePrice(m)}
-                        className="rounded-md px-2 py-1 text-xs font-semibold disabled:opacity-30"
-                        style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
-                      >
-                        Save
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
-    </SectionCard>
+    <div className="max-h-[60vh] space-y-4 overflow-y-auto">
+      {allCategories.map((cat) => {
+        const items = menu.filter((m) => m.category === cat);
+        if (!items.length) return null;
+        return (
+          <div key={cat}>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</p>
+            <ul className="space-y-2">
+              {items.map((m) => {
+                const dirty = edits[m.id] !== undefined;
+                return (
+                  <li key={m.id} className="flex items-center gap-2">
+                    <span className="flex-1 truncate text-sm">{m.name}</span>
+                    <span className="text-xs text-muted-foreground">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={dirty ? edits[m.id] : Number(m.price).toFixed(2)}
+                      onChange={(e) => setEdits((s) => ({ ...s, [m.id]: e.target.value }))}
+                      className="w-20 rounded-md border bg-background px-2 py-1 text-sm"
+                    />
+                    <button
+                      disabled={!dirty}
+                      onClick={() => savePrice(m)}
+                      className="rounded-md px-2 py-1 text-xs font-semibold disabled:opacity-30"
+                      style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+                    >
+                      Save
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
