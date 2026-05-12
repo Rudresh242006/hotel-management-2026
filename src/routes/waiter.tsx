@@ -276,3 +276,36 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
     </div>
   );
 }
+
+function ItemStatusBadge({
+  orderStatus,
+  unavailable,
+}: {
+  orderStatus: Order["status"];
+  unavailable: boolean;
+}) {
+  let label = "Sent";
+  let bg = "var(--muted)";
+  let color = "var(--foreground)";
+  if (unavailable) {
+    label = "Unavailable";
+    bg = "var(--destructive)";
+    color = "var(--destructive-foreground)";
+  } else if (orderStatus === "ready") {
+    label = "Ready";
+    bg = "var(--success)";
+    color = "var(--success-foreground)";
+  } else if (orderStatus === "preparing" || orderStatus === "in_kitchen") {
+    label = "Preparing";
+    bg = "var(--warning)";
+    color = "white";
+  }
+  return (
+    <span
+      className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+      style={{ background: bg, color }}
+    >
+      {label}
+    </span>
+  );
+}
