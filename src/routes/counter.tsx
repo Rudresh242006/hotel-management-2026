@@ -235,11 +235,57 @@ function StatusBadge({ status }: { status: Order["status"] }) {
 
 function AdminPanel() {
   return (
-    <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-3">
-      <PriceEditor />
-      <TableManager />
-      <MenuItemManager />
+    <main className="mx-auto max-w-4xl px-6 py-8">
+      <Accordion type="single" collapsible defaultValue="prices" className="space-y-3">
+        <AdminAccordionItem value="prices" title="Menu Price Editor" icon={<DollarSign className="h-4 w-4" />}>
+          <PriceEditor />
+        </AdminAccordionItem>
+        <AdminAccordionItem value="tables" title="Table Manager" icon={<TableIcon className="h-4 w-4" />}>
+          <TableManager />
+        </AdminAccordionItem>
+        <AdminAccordionItem value="menu" title="Menu Item Manager" icon={<UtensilsCrossed className="h-4 w-4" />}>
+          <MenuItemManager />
+        </AdminAccordionItem>
+      </Accordion>
     </main>
+  );
+}
+
+function AdminAccordionItem({
+  value,
+  title,
+  icon,
+  children,
+}: {
+  value: string;
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <AccordionItem value={value} className="overflow-hidden rounded-xl border bg-card shadow-sm">
+      <AccordionTrigger
+        className="px-4 py-3 text-sm font-bold uppercase tracking-wider hover:no-underline"
+        style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+      >
+        <span className="flex items-center gap-2">{icon} {title}</span>
+      </AccordionTrigger>
+      <AccordionContent className="p-4">{children}</AccordionContent>
+    </AccordionItem>
+  );
+}
+
+function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-xl border bg-card shadow-sm">
+      <header
+        className="rounded-t-xl px-4 py-3 text-sm font-bold uppercase tracking-wider"
+        style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+      >
+        {title}
+      </header>
+      <div className="p-4">{children}</div>
+    </section>
   );
 }
 
