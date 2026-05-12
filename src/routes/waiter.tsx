@@ -88,16 +88,15 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
   const tableOrderItems = orderItems.filter((oi) => tableOrders.some((o) => o.id === oi.order_id));
 
   const billRows = useMemo(() => {
-    const map = new Map<string, { item: MenuItem; qty: number }>();
+    const rows: { key: string; item: MenuItem; qty: number; orderStatus: Order["status"] }[] = [];
     tableOrderItems.forEach((oi) => {
       const item = menu.find((m) => m.id === oi.menu_item_id);
-      if (!item) return;
-      const cur = map.get(item.id);
-      if (cur) cur.qty += oi.quantity;
-      else map.set(item.id, { item, qty: oi.quantity });
+      const order = tableOrders.find((o) => o.id === oi.order_id);
+      if (!item || !order) return;
+      rows.push({ key: oi.id, item, qty: oi.quantity, orderStatus: order.status });
     });
-    return Array.from(map.values());
-  }, [tableOrderItems, menu]);
+    return rows;
+  }, [tableOrderItems, menu, tableOrders]);
 
   const billTotal = billRows.reduce((sum, r) => sum + r.qty * Number(r.item.price), 0);
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
@@ -180,11 +179,12 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
               <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 Current bill
               </h3>
-              <ul className="space-y-1 text-sm">
+              <ul className="space-y-2 text-sm">
                 {billRows.map((r) => (
-                  <li key={r.item.id} className="flex justify-between">
-                    <span>{r.qty} × {r.item.name}</span>
-                    <span className="font-medium">${(r.qty * Number(r.item.price)).toFixed(2)}</span>
+                  <li key={r.key} className="flex items-center justify-between gap-2">
+                    <span className="flex-1">{r.qty} × {r.item.name}</span>
+                    <ItemStatusBadge orderStatus={r.orderStatus} unavailable={!r.item.is_available} />
+                    <span className="w-16 text-right font-medium">${(r.qty * Number(r.item.price)).toFixed(2)}</span>
                   </li>
                 ))}
               </ul>
@@ -274,5 +274,38 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
         </div>
       </aside>
     </div>
+  );
+}
+
+function ItemStatusBadge({
+  orderStatus,
+  unavailable,
+}: {
+  orderStatus: Order["status"];
+  unavailable: boolean;
+}) {
+  let label = "Sent";
+  let bg = "var(--muted)";
+  let color = "var(--foreground)";
+  if (unavailable) {
+    label = "Unavailable";
+    bg = "var(--destructive)";
+    color = "var(--destructive-foreground)";
+  } else if (orderStatus === "ready") {
+    label = "Ready";
+    bg = "var(--success)";
+    color = "var(--success-foreground)";
+  } else if (orderStatus === "preparing" || orderStatus === "in_kitchen") {
+    label = "Preparing";
+    bg = "var(--warning)";
+    color = "white";
+  }
+  return (
+    <span
+      className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+      style={{ background: bg, color }}
+    >
+      {label}
+    </span>
   );
 }
