@@ -179,11 +179,12 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
               <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 Current bill
               </h3>
-              <ul className="space-y-1 text-sm">
+              <ul className="space-y-2 text-sm">
                 {billRows.map((r) => (
-                  <li key={r.item.id} className="flex justify-between">
-                    <span>{r.qty} × {r.item.name}</span>
-                    <span className="font-medium">${(r.qty * Number(r.item.price)).toFixed(2)}</span>
+                  <li key={r.key} className="flex items-center justify-between gap-2">
+                    <span className="flex-1">{r.qty} × {r.item.name}</span>
+                    <ItemStatusBadge orderStatus={r.orderStatus} unavailable={!r.item.is_available} />
+                    <span className="w-16 text-right font-medium">${(r.qty * Number(r.item.price)).toFixed(2)}</span>
                   </li>
                 ))}
               </ul>
