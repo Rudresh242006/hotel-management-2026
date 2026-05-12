@@ -15,7 +15,8 @@ import {
   type OrderItem,
   type TableRow,
 } from "@/lib/restaurant";
-import { ChefHat, CheckCircle2, Plus, Trash2, Settings, ClipboardList } from "lucide-react";
+import { ChefHat, CheckCircle2, Plus, Trash2, Settings, ClipboardList, DollarSign, Table as TableIcon, UtensilsCrossed } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 export const Route = createFileRoute("/counter")({
   component: CounterPage,
