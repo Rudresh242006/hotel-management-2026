@@ -161,6 +161,7 @@ function KitchenPage() {
           </div>
         </section>
       </main>
+      )}
     </div>
   );
 }
