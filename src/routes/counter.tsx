@@ -17,6 +17,7 @@ import {
 } from "@/lib/restaurant";
 import { ChefHat, CheckCircle2, Plus, Trash2, Settings, ClipboardList, DollarSign, Table as TableIcon, UtensilsCrossed } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/counter")({
   component: CounterPage,
@@ -73,10 +74,11 @@ function TabBtn({
 /* ============ ORDERS VIEW ============ */
 
 function OrdersView() {
-  const { data: tables } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
-  const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
-  const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
-  const { data: orderItems } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
+  const { data: tables, loading: lt } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
+  const { data: menu, loading: lm } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
+  const { data: orders, loading: lo } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
+  const { data: orderItems, loading: loi } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
+  const initialLoading = lt && lm && lo && loi;
 
   const seenReady = useRef<Set<string>>(new Set());
   useEffect(() => {
