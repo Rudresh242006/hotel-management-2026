@@ -102,6 +102,8 @@ function OrdersView() {
     await supabase.from("menu_items").update({ is_available: !item.is_available }).eq("id", item.id);
   }
 
+  if (initialLoading) return <LoadingScreen role="counter" label="Loading orders…" />;
+
   return (
     <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1.4fr_1fr]">
       <section>
