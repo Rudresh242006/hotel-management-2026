@@ -15,6 +15,7 @@ import {
   type TableRow,
 } from "@/lib/restaurant";
 import { Flame, CheckCircle2, Ban } from "lucide-react";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/kitchen")({
   component: KitchenPage,
@@ -22,10 +23,11 @@ export const Route = createFileRoute("/kitchen")({
 });
 
 function KitchenPage() {
-  const { data: tables } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
-  const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
-  const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
-  const { data: orderItems } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
+  const { data: tables, loading: lt } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
+  const { data: menu, loading: lm } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
+  const { data: orders, loading: lo } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
+  const { data: orderItems, loading: loi } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
+  const initialLoading = lt && lm && lo && loi;
 
   const queue = orders.filter((o) => ["in_kitchen", "preparing", "ready"].includes(o.status));
 
