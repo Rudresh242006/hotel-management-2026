@@ -16,6 +16,7 @@ import {
   type TableRow,
 } from "@/lib/restaurant";
 import { Minus, Plus, Receipt, Send, Utensils, X } from "lucide-react";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/waiter")({
   component: WaiterPage,
@@ -23,7 +24,7 @@ export const Route = createFileRoute("/waiter")({
 });
 
 function WaiterPage() {
-  const { data: tables } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
+  const { data: tables, loading } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
 
   const activeTable = tables.find((t) => t.id === activeTableId) ?? null;
@@ -32,6 +33,7 @@ function WaiterPage() {
     <div className="min-h-screen bg-background">
       <RoleHeader role="waiter" title="Floor View" subtitle="Tap a table to manage its order" />
       <main className="mx-auto max-w-7xl px-6 py-8">
+        {loading && <LoadingScreen role="waiter" label="Loading tables…" />}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
           {tables.map((t) => {
             const free = t.status === "free";

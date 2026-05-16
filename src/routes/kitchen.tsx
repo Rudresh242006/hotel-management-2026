@@ -15,6 +15,7 @@ import {
   type TableRow,
 } from "@/lib/restaurant";
 import { Flame, CheckCircle2, Ban } from "lucide-react";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/kitchen")({
   component: KitchenPage,
@@ -22,10 +23,11 @@ export const Route = createFileRoute("/kitchen")({
 });
 
 function KitchenPage() {
-  const { data: tables } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
-  const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
-  const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
-  const { data: orderItems } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
+  const { data: tables, loading: lt } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
+  const { data: menu, loading: lm } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
+  const { data: orders, loading: lo } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
+  const { data: orderItems, loading: loi } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
+  const initialLoading = lt && lm && lo && loi;
 
   const queue = orders.filter((o) => ["in_kitchen", "preparing", "ready"].includes(o.status));
 
@@ -42,6 +44,9 @@ function KitchenPage() {
   return (
     <div className="min-h-screen bg-background">
       <RoleHeader role="kitchen" title="Kitchen Display" subtitle="Tickets from counter" />
+      {initialLoading ? (
+        <LoadingScreen role="kitchen" label="Loading tickets…" />
+      ) : (
       <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1.6fr_1fr]">
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -156,6 +161,7 @@ function KitchenPage() {
           </div>
         </section>
       </main>
+      )}
     </div>
   );
 }

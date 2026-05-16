@@ -17,6 +17,7 @@ import {
 } from "@/lib/restaurant";
 import { ChefHat, CheckCircle2, Plus, Trash2, Settings, ClipboardList, DollarSign, Table as TableIcon, UtensilsCrossed } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/counter")({
   component: CounterPage,
@@ -73,10 +74,11 @@ function TabBtn({
 /* ============ ORDERS VIEW ============ */
 
 function OrdersView() {
-  const { data: tables } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
-  const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
-  const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
-  const { data: orderItems } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
+  const { data: tables, loading: lt } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
+  const { data: menu, loading: lm } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
+  const { data: orders, loading: lo } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
+  const { data: orderItems, loading: loi } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
+  const initialLoading = lt && lm && lo && loi;
 
   const seenReady = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -99,6 +101,8 @@ function OrdersView() {
   async function toggleAvail(item: MenuItem) {
     await supabase.from("menu_items").update({ is_available: !item.is_available }).eq("id", item.id);
   }
+
+  if (initialLoading) return <LoadingScreen role="counter" label="Loading orders…" />;
 
   return (
     <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1.4fr_1fr]">
