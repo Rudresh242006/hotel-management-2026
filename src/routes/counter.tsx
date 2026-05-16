@@ -452,7 +452,16 @@ function MenuItemManager() {
 
   return (
     <div>
-      <div className="mb-4 space-y-2 rounded-lg border bg-muted/30 p-3">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          addItem();
+        }}
+        className="mb-4 space-y-2 rounded-lg border bg-muted/30 p-3"
+      >
+        <p className="text-xs text-muted-foreground">
+          Tip: a new category is created together with the first item in it. Fill in name + price too, then click Add Item (or press Enter).
+        </p>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -481,6 +490,7 @@ function MenuItemManager() {
         </div>
         {category === NEW_CATEGORY && (
           <input
+            autoFocus
             value={newCategory}
             onChange={(e) => setNewCategory(e.target.value)}
             placeholder="New category name (e.g. Salads, Soups)"
@@ -488,13 +498,13 @@ function MenuItemManager() {
           />
         )}
         <button
-          onClick={addItem}
+          type="submit"
           className="inline-flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold"
           style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
         >
           <Plus className="h-4 w-4" /> Add Item
         </button>
-      </div>
+      </form>
       <ul className="max-h-[45vh] space-y-1 overflow-y-auto">
         {menu.map((m) => (
           <li key={m.id} className="flex items-center justify-between rounded-md border px-3 py-2">
