@@ -44,6 +44,9 @@ function KitchenPage() {
   return (
     <div className="min-h-screen bg-background">
       <RoleHeader role="kitchen" title="Kitchen Display" subtitle="Tickets from counter" />
+      {initialLoading ? (
+        <LoadingScreen role="kitchen" label="Loading tickets…" />
+      ) : (
       <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1.6fr_1fr]">
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
