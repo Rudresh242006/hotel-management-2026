@@ -422,11 +422,25 @@ const NEW_CATEGORY = "__new__";
 
 function MenuItemManager() {
   const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
-  const allCategories = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)]));
+  const [manualCategories, setManualCategories] = useState<string[]>([]);
+  const allCategories = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category), ...manualCategories]));
   const [name, setName] = useState("");
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
   const [newCategory, setNewCategory] = useState("");
   const [price, setPrice] = useState("");
+
+  function addCategory() {
+    const trimmed = newCategory.trim();
+    if (!trimmed) {
+      toast.error("Enter a category name");
+      return;
+    }
+    const existing = allCategories.find((c) => c.toLowerCase() === trimmed.toLowerCase());
+    if (!existing) setManualCategories((current) => [...current, trimmed]);
+    setCategory(existing ?? trimmed);
+    setNewCategory("");
+    toast.success(`Category selected: ${existing ?? trimmed}`);
+  }
 
   async function addItem() {
     const p = Number(price);
@@ -445,6 +459,7 @@ function MenuItemManager() {
     setName("");
     setPrice("");
     setNewCategory("");
+    setCategory(finalCategory);
     toast.success(`Added ${name}`);
   }
 
@@ -464,7 +479,7 @@ function MenuItemManager() {
         className="mb-4 space-y-2 rounded-lg border bg-muted/30 p-3"
       >
         <p className="text-xs text-muted-foreground">
-          Tip: a new category is created together with the first item in it. Fill in name + price too, then click Add Item (or press Enter).
+          Tip: choose “Add new category”, type the category, then press Enter or Add Category. After that, add items under it.
         </p>
         <input
           value={name}
@@ -493,13 +508,29 @@ function MenuItemManager() {
           />
         </div>
         {category === NEW_CATEGORY && (
-          <input
-            autoFocus
-            value={newCategory}
-            onChange={(e) => setNewCategory(e.target.value)}
-            placeholder="New category name (e.g. Salads, Soups)"
-            className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-          />
+          <div className="flex gap-2">
+            <input
+              autoFocus
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCategory();
+                }
+              }}
+              placeholder="New category name (e.g. Salads, Soups)"
+              className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1.5 text-sm"
+            />
+            <button
+              type="button"
+              onClick={addCategory}
+              className="shrink-0 rounded-md px-3 py-1.5 text-sm font-semibold"
+              style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+            >
+              Add Category
+            </button>
+          </div>
         )}
         <button
           type="submit"
