@@ -31,9 +31,21 @@ function KitchenPage() {
 
   const queue = orders.filter((o) => ["in_kitchen", "preparing", "ready"].includes(o.status));
 
-  async function setStatus(id: string, status: Order["status"]) {
-    await supabase.from("orders").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
-    toast.success(status === "preparing" ? "Marked preparing" : "Marked ready");
+  async function setItemStatus(itemId: string, orderId: string, status: "preparing" | "ready") {
+    await supabase.from("order_items").update({ status }).eq("id", itemId);
+    // Optimistically sync — realtime refresh will reconcile
+    const updated = orderItems.map((oi) => (oi.id === itemId ? { ...oi, status } : oi));
+    const mine = updated.filter((oi) => oi.order_id === orderId);
+    let next: Order["status"] = "in_kitchen";
+    if (mine.every((i) => i.status === "ready")) next = "ready";
+    else if (mine.some((i) => i.status === "preparing" || i.status === "ready")) next = "preparing";
+    await supabase.from("orders").update({ status: next, updated_at: new Date().toISOString() }).eq("id", orderId);
+  }
+
+  async function setOrderStatus(orderId: string, status: "preparing" | "ready") {
+    await supabase.from("order_items").update({ status }).eq("order_id", orderId);
+    await supabase.from("orders").update({ status, updated_at: new Date().toISOString() }).eq("id", orderId);
+    toast.success(status === "preparing" ? "Whole order: preparing" : "Whole order: ready");
   }
 
   async function toggleAvail(item: MenuItem) {
@@ -83,39 +95,69 @@ function KitchenPage() {
                         </p>
                       </div>
                     </header>
-                    <ul className="space-y-1 border-y px-4 py-3">
+                    <ul className="space-y-2 border-y px-4 py-3">
                       {items.map((it) => {
                         const m = menu.find((x) => x.id === it.menu_item_id);
+                        const itemAccent =
+                          it.status === "ready"
+                            ? "var(--success)"
+                            : it.status === "preparing"
+                              ? "var(--warning)"
+                              : "var(--kitchen)";
                         return (
-                          <li key={it.id} className="flex items-baseline gap-3">
-                            <span className="text-2xl font-bold tabular-nums" style={{ color: accent }}>
+                          <li key={it.id} className="flex items-center gap-3">
+                            <span className="text-2xl font-bold tabular-nums" style={{ color: itemAccent }}>
                               {it.quantity}×
                             </span>
-                            <span className="text-base flex-1">{m?.name ?? "?"}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-base truncate">{m?.name ?? "?"}</p>
+                              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: itemAccent }}>
+                                {it.status.replace("_", " ")}
+                              </p>
+                            </div>
                             {m && !m.is_available && (
                               <span className="rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold uppercase text-destructive-foreground">
                                 Out
                               </span>
                             )}
+                            <div className="flex gap-1">
+                              <button
+                                disabled={it.status === "preparing" || it.status === "ready"}
+                                onClick={() => setItemStatus(it.id, o.id, "preparing")}
+                                className="rounded-md border px-2 py-1 text-[11px] font-semibold disabled:opacity-30"
+                                title="Mark this item preparing"
+                              >
+                                <Flame className="h-3 w-3" />
+                              </button>
+                              <button
+                                disabled={it.status === "ready"}
+                                onClick={() => setItemStatus(it.id, o.id, "ready")}
+                                className="rounded-md px-2 py-1 text-[11px] font-semibold disabled:opacity-30"
+                                style={{ background: "var(--kitchen)", color: "var(--kitchen-foreground)" }}
+                                title="Mark this item ready"
+                              >
+                                <CheckCircle2 className="h-3 w-3" />
+                              </button>
+                            </div>
                           </li>
                         );
                       })}
                     </ul>
                     <div className="flex gap-2 p-3">
                       <button
-                        disabled={o.status === "preparing" || o.status === "ready"}
-                        onClick={() => setStatus(o.id, "preparing")}
+                        disabled={items.every((i) => i.status === "preparing" || i.status === "ready")}
+                        onClick={() => setOrderStatus(o.id, "preparing")}
                         className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40"
                       >
-                        <Flame className="h-4 w-4" /> Preparing
+                        <Flame className="h-4 w-4" /> All Preparing
                       </button>
                       <button
-                        disabled={o.status === "ready"}
-                        onClick={() => setStatus(o.id, "ready")}
+                        disabled={items.every((i) => i.status === "ready")}
+                        onClick={() => setOrderStatus(o.id, "ready")}
                         className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-40"
                         style={{ background: "var(--kitchen)", color: "var(--kitchen-foreground)" }}
                       >
-                        <CheckCircle2 className="h-4 w-4" /> Ready
+                        <CheckCircle2 className="h-4 w-4" /> All Ready
                       </button>
                     </div>
                   </article>

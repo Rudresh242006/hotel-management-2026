@@ -5,7 +5,8 @@ export type TableRow = { id: string; table_number: number; status: "free" | "occ
 export type MenuItem = { id: string; name: string; category: string; price: number; is_available: boolean };
 export type OrderStatus = "placed" | "in_kitchen" | "preparing" | "ready" | "billed";
 export type Order = { id: string; table_id: string; status: OrderStatus; created_at: string; updated_at: string };
-export type OrderItem = { id: string; order_id: string; menu_item_id: string; quantity: number };
+export type OrderItemStatus = "in_kitchen" | "preparing" | "ready";
+export type OrderItem = { id: string; order_id: string; menu_item_id: string; quantity: number; status: OrderItemStatus };
 
 export const CATEGORIES = ["Starters", "Main Course", "Beverages", "Desserts"] as const;
 
