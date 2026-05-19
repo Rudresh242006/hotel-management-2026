@@ -1,0 +1,1 @@
+ALTER TABLE public.menu_items DROP CONSTRAINT IF EXISTS menu_items_category_check;
