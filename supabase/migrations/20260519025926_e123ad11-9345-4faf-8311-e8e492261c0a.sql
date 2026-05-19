@@ -1,0 +1,1 @@
+ALTER TABLE public.order_items ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'in_kitchen';
