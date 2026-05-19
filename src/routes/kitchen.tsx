@@ -31,15 +31,6 @@ function KitchenPage() {
 
   const queue = orders.filter((o) => ["in_kitchen", "preparing", "ready"].includes(o.status));
 
-  async function syncOrderStatus(orderId: string) {
-    const items = orderItems.filter((oi) => oi.order_id === orderId);
-    if (items.length === 0) return;
-    let next: Order["status"] = "in_kitchen";
-    if (items.every((i) => i.status === "ready")) next = "ready";
-    else if (items.some((i) => i.status === "preparing" || i.status === "ready")) next = "preparing";
-    await supabase.from("orders").update({ status: next, updated_at: new Date().toISOString() }).eq("id", orderId);
-  }
-
   async function setItemStatus(itemId: string, orderId: string, status: "preparing" | "ready") {
     await supabase.from("order_items").update({ status }).eq("id", itemId);
     // Optimistically sync — realtime refresh will reconcile
