@@ -540,24 +540,40 @@ function MenuItemManager() {
           <Plus className="h-4 w-4" /> Add Item
         </button>
       </form>
-      <ul className="max-h-[45vh] space-y-1 overflow-y-auto">
-        {menu.map((m) => (
-          <li key={m.id} className="flex items-center justify-between rounded-md border px-3 py-2">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{m.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {m.category} · ${Number(m.price).toFixed(2)}
-              </p>
-            </div>
-            <button
-              onClick={() => removeItem(m)}
-              className="rounded-md p-2 text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </li>
-        ))}
-      </ul>
+      {(() => {
+        const activeCat = category === NEW_CATEGORY ? newCategory.trim() : category;
+        const filtered = menu.filter((m) => !activeCat || m.category.toLowerCase() === activeCat.toLowerCase());
+        return (
+          <>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {activeCat ? `Items in "${activeCat}" (${filtered.length})` : `All items (${menu.length})`}
+            </p>
+            <ul className="max-h-[45vh] space-y-1 overflow-y-auto">
+              {filtered.length === 0 && (
+                <li className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
+                  No items in this category yet.
+                </li>
+              )}
+              {filtered.map((m) => (
+                <li key={m.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{m.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {m.category} · ${Number(m.price).toFixed(2)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => removeItem(m)}
+                    className="rounded-md p-2 text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        );
+      })()}
     </div>
   );
 }
