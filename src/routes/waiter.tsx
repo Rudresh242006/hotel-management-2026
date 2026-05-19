@@ -121,7 +121,7 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
     setBusy(true);
     const { data: order, error } = await supabase
       .from("orders")
-      .insert({ table_id: table.id, status: "placed" })
+      .insert({ table_id: table.id, status: "in_kitchen" })
       .select()
       .single();
     if (error || !order) {
