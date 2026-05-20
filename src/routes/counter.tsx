@@ -142,9 +142,10 @@ function OrdersView() {
                   {items.map((it) => {
                     const m = menu.find((x) => x.id === it.menu_item_id);
                     return (
-                      <li key={it.id} className="flex justify-between">
-                        <span>{it.quantity} × {m?.name ?? "?"}</span>
-                        <span className="text-muted-foreground">
+                      <li key={it.id} className="flex items-center justify-between gap-2">
+                        <span className="flex-1">{it.quantity} × {m?.name ?? "?"}</span>
+                        <ItemStatusPill status={it.status} />
+                        <span className="w-16 text-right text-muted-foreground">
                           ${m ? (Number(m.price) * it.quantity).toFixed(2) : "—"}
                         </span>
                       </li>
