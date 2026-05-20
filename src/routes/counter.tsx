@@ -220,8 +220,8 @@ function OrdersView() {
 function StatusBadge({ status }: { status: Order["status"] }) {
   const map: Record<Order["status"], { label: string; bg: string }> = {
     placed: { label: "New", bg: "var(--warning)" },
-    in_kitchen: { label: "In kitchen", bg: "var(--counter)" },
-    preparing: { label: "Preparing", bg: "var(--counter)" },
+    in_kitchen: { label: "Preparing", bg: "var(--warning)" },
+    preparing: { label: "Preparing", bg: "var(--warning)" },
     ready: { label: "Ready", bg: "var(--success)" },
     billed: { label: "Billed", bg: "var(--muted)" },
   };
@@ -232,6 +232,21 @@ function StatusBadge({ status }: { status: Order["status"] }) {
       style={{ background: s.bg, color: "white" }}
     >
       {s.label}
+    </span>
+  );
+}
+
+function ItemStatusPill({ status }: { status: OrderItem["status"] }) {
+  const isReady = status === "ready";
+  return (
+    <span
+      className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+      style={{
+        background: isReady ? "var(--success)" : "var(--warning)",
+        color: "white",
+      }}
+    >
+      {isReady ? "Ready" : "Preparing"}
     </span>
   );
 }
