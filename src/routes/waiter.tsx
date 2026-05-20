@@ -15,7 +15,7 @@ import {
   type OrderItem,
   type TableRow,
 } from "@/lib/restaurant";
-import { Minus, Plus, Receipt, Send, Utensils, X } from "lucide-react";
+import { Minus, Plus, Receipt, Send, Utensils, X, Search } from "lucide-react";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/waiter")({

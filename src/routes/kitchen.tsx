@@ -14,7 +14,7 @@ import {
   type OrderItem,
   type TableRow,
 } from "@/lib/restaurant";
-import { Flame, CheckCircle2, Ban } from "lucide-react";
+import { Flame, CheckCircle2, Ban, Search } from "lucide-react";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/kitchen")({
