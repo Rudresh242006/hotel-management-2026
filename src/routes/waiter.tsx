@@ -85,6 +85,7 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
 
   const [cart, setCart] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState("");
 
   const tableOrders = orders.filter((o) => o.table_id === table.id && o.status !== "billed");
   const tableOrderItems = orderItems.filter((oi) => tableOrders.some((o) => o.id === oi.order_id));
@@ -157,6 +158,15 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
     onClose();
   }
 
+  const q = search.trim().toLowerCase();
+  const allCategories = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)]));
+  const visibleCategories = allCategories.filter((cat) => {
+    if (!q) return true;
+    if (cat.toLowerCase().includes(q)) return true;
+    const catItems = menu.filter((m) => m.category === cat);
+    return catItems.some((m) => m.name.toLowerCase().includes(q));
+  });
+
   return (
     <div className="fixed inset-0 z-30 flex">
       <div className="flex-1 bg-black/40" onClick={onClose} />
@@ -196,8 +206,23 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
             </section>
           )}
 
-          {Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)])).map((cat) => {
-            const items = menu.filter((m) => m.category === cat);
+          <div className="relative mb-4">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search item or category…"
+              className="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
+            />
+            {q && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                {menu.filter((m) => m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q)).length}
+              </span>
+            )}
+          </div>
+
+          {visibleCategories.map((cat) => {
+            const items = menu.filter((m) => m.category === cat && (!q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q)));
             if (items.length === 0) return null;
             return (
               <section key={cat} className="mb-6">
@@ -244,6 +269,11 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
               </section>
             );
           })}
+          {visibleCategories.length === 0 && (
+            <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
+              No items match your search.
+            </div>
+          )}
         </div>
 
         <div className="border-t bg-card p-4">

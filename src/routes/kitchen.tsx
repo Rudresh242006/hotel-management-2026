@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { RoleHeader } from "@/components/RoleHeader";
@@ -33,7 +34,6 @@ function KitchenPage() {
 
   async function setItemStatus(itemId: string, orderId: string, status: "preparing" | "ready") {
     await supabase.from("order_items").update({ status }).eq("id", itemId);
-    // Optimistically sync — realtime refresh will reconcile
     const updated = orderItems.map((oi) => (oi.id === itemId ? { ...oi, status } : oi));
     const mine = updated.filter((oi) => oi.order_id === orderId);
     let next: Order["status"] = "in_kitchen";
@@ -168,42 +168,94 @@ function KitchenPage() {
         </section>
 
         <section>
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            <Ban className="h-4 w-4" /> 86 the menu
-          </h2>
-          <div className="space-y-4 rounded-xl border bg-card p-4">
-            {CATEGORIES.map((cat) => {
-              const items = menu.filter((m) => m.category === cat);
-              if (!items.length) return null;
-              return (
-                <div key={cat}>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</p>
-                  <ul className="space-y-1">
-                    {items.map((m) => (
-                      <li key={m.id} className="flex items-center justify-between rounded-md px-2 py-2 hover:bg-accent">
-                        <span className={`text-sm ${m.is_available ? "" : "text-muted-foreground line-through"}`}>
-                          {m.name}
-                        </span>
-                        <button
-                          onClick={() => toggleAvail(m)}
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                            m.is_available
-                              ? "bg-success/20 text-foreground"
-                              : "bg-destructive/20 text-foreground"
-                          }`}
-                        >
-                          {m.is_available ? "Available" : "Unavailable"}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <Ban className="h-4 w-4" /> 86 the menu
+            </h2>
+            <Menu86Search menu={menu} />
           </div>
+          <Menu86List menu={menu} />
         </section>
       </main>
       )}
+    </div>
+  );
+}
+
+function Menu86Search({ menu }: { menu: MenuItem[] }) {
+  const [query, setQuery] = useState("");
+  const filtered = query.trim()
+    ? menu.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()))
+    : menu;
+  return (
+    <div className="relative">
+      <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search item…"
+        className="h-8 w-40 rounded-md border bg-background pl-8 pr-3 text-sm"
+      />
+      {query.trim() && (
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+          {filtered.length}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function Menu86List({ menu }: { menu: MenuItem[] }) {
+  const [query, setQuery] = useState("");
+  async function toggleAvail(item: MenuItem) {
+    await supabase.from("menu_items").update({ is_available: !item.is_available }).eq("id", item.id);
+    toast.success(item.is_available ? `${item.name} marked unavailable` : `${item.name} available`);
+  }
+  const q = query.trim().toLowerCase();
+  return (
+    <div className="space-y-4 rounded-xl border bg-card p-4">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search item or category…"
+          className="h-8 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
+        />
+        {q && (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+            {menu.filter((m) => m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q)).length}
+          </span>
+        )}
+      </div>
+      {Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)])).map((cat) => {
+        const items = menu.filter((m) => m.category === cat && (!q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q)));
+        if (!items.length) return null;
+        return (
+          <div key={cat}>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</p>
+            <ul className="space-y-1">
+              {items.map((m) => (
+                <li key={m.id} className="flex items-center justify-between rounded-md px-2 py-2 hover:bg-accent">
+                  <span className={`text-sm ${m.is_available ? "" : "text-muted-foreground line-through"}`}>
+                    {m.name}
+                  </span>
+                  <button
+                    onClick={() => toggleAvail(m)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      m.is_available
+                        ? "bg-success/20 text-foreground"
+                        : "bg-destructive/20 text-foreground"
+                    }`}
+                  >
+                    {m.is_available ? "Available" : "Unavailable"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </div>
   );
 }
