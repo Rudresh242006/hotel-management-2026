@@ -185,7 +185,7 @@ function OrdersView() {
           Menu availability
         </h2>
         <div className="space-y-4 rounded-xl border bg-card p-4">
-          {CATEGORIES.map((cat) => {
+          {Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)])).map((cat) => {
             const items = menu.filter((m) => m.category === cat);
             if (!items.length) return null;
             return (
