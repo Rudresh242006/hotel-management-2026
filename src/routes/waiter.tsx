@@ -196,7 +196,7 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
             </section>
           )}
 
-          {CATEGORIES.map((cat) => {
+          {Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)])).map((cat) => {
             const items = menu.filter((m) => m.category === cat);
             if (items.length === 0) return null;
             return (
