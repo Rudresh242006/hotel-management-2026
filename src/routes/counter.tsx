@@ -119,16 +119,27 @@ function OrdersView() {
   return (
     <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1.4fr_1fr]">
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Incoming orders ({active.length})
-        </h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Incoming orders ({filteredOrders.length})
+          </h2>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search table or item…"
+              className="h-8 w-44 rounded-md border bg-background pl-8 pr-3 text-sm"
+            />
+          </div>
+        </div>
         <div className="space-y-3">
-          {active.length === 0 && (
+          {filteredOrders.length === 0 && (
             <div className="rounded-xl border border-dashed p-12 text-center text-muted-foreground">
-              No active orders. Waiting…
+              {search.trim() ? "No orders match your search." : "No active orders. Waiting…"}
             </div>
           )}
-          {active.map((o) => {
+          {filteredOrders.map((o) => {
             const table = tables.find((t) => t.id === o.table_id);
             const items = orderItems.filter((oi) => oi.order_id === o.id);
             return (
