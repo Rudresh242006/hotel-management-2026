@@ -91,7 +91,19 @@ function OrdersView() {
     });
   }, [orders, tables]);
 
+  const [search, setSearch] = useState("");
   const active = orders.filter((o) => o.status !== "billed");
+  const filteredOrders = active.filter((o) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    const table = tables.find((t) => t.id === o.table_id);
+    if (table?.table_number.toString().includes(q)) return true;
+    const items = orderItems.filter((oi) => oi.order_id === o.id);
+    return items.some((it) => {
+      const m = menu.find((x) => x.id === it.menu_item_id);
+      return m?.name.toLowerCase().includes(q);
+    });
+  });
 
   async function forwardToKitchen(id: string) {
     await supabase.from("orders").update({ status: "in_kitchen" }).eq("id", id);
