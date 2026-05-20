@@ -279,27 +279,23 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
 }
 
 function ItemStatusBadge({
-  orderStatus,
+  itemStatus,
   unavailable,
 }: {
-  orderStatus: Order["status"];
+  itemStatus: OrderItem["status"];
   unavailable: boolean;
 }) {
-  let label = "Sent";
-  let bg = "var(--muted)";
-  let color = "var(--foreground)";
+  let label = "Preparing";
+  let bg: string = "var(--warning)";
+  let color = "white";
   if (unavailable) {
     label = "Unavailable";
     bg = "var(--destructive)";
     color = "var(--destructive-foreground)";
-  } else if (orderStatus === "ready") {
+  } else if (itemStatus === "ready") {
     label = "Ready";
     bg = "var(--success)";
     color = "var(--success-foreground)";
-  } else if (orderStatus === "preparing" || orderStatus === "in_kitchen") {
-    label = "Preparing";
-    bg = "var(--warning)";
-    color = "white";
   }
   return (
     <span
