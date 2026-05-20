@@ -90,15 +90,14 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
   const tableOrderItems = orderItems.filter((oi) => tableOrders.some((o) => o.id === oi.order_id));
 
   const billRows = useMemo(() => {
-    const rows: { key: string; item: MenuItem; qty: number; orderStatus: Order["status"] }[] = [];
+    const rows: { key: string; item: MenuItem; qty: number; itemStatus: OrderItem["status"] }[] = [];
     tableOrderItems.forEach((oi) => {
       const item = menu.find((m) => m.id === oi.menu_item_id);
-      const order = tableOrders.find((o) => o.id === oi.order_id);
-      if (!item || !order) return;
-      rows.push({ key: oi.id, item, qty: oi.quantity, orderStatus: order.status });
+      if (!item) return;
+      rows.push({ key: oi.id, item, qty: oi.quantity, itemStatus: oi.status });
     });
     return rows;
-  }, [tableOrderItems, menu, tableOrders]);
+  }, [tableOrderItems, menu]);
 
   const billTotal = billRows.reduce((sum, r) => sum + r.qty * Number(r.item.price), 0);
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
@@ -185,7 +184,7 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
                 {billRows.map((r) => (
                   <li key={r.key} className="flex items-center justify-between gap-2">
                     <span className="flex-1">{r.qty} × {r.item.name}</span>
-                    <ItemStatusBadge orderStatus={r.orderStatus} unavailable={!r.item.is_available} />
+                    <ItemStatusBadge itemStatus={r.itemStatus} unavailable={!r.item.is_available} />
                     <span className="w-16 text-right font-medium">${(r.qty * Number(r.item.price)).toFixed(2)}</span>
                   </li>
                 ))}
@@ -280,27 +279,23 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
 }
 
 function ItemStatusBadge({
-  orderStatus,
+  itemStatus,
   unavailable,
 }: {
-  orderStatus: Order["status"];
+  itemStatus: OrderItem["status"];
   unavailable: boolean;
 }) {
-  let label = "Sent";
-  let bg = "var(--muted)";
-  let color = "var(--foreground)";
+  let label = "Preparing";
+  let bg: string = "var(--warning)";
+  let color = "white";
   if (unavailable) {
     label = "Unavailable";
     bg = "var(--destructive)";
     color = "var(--destructive-foreground)";
-  } else if (orderStatus === "ready") {
+  } else if (itemStatus === "ready") {
     label = "Ready";
     bg = "var(--success)";
     color = "var(--success-foreground)";
-  } else if (orderStatus === "preparing" || orderStatus === "in_kitchen") {
-    label = "Preparing";
-    bg = "var(--warning)";
-    color = "white";
   }
   return (
     <span

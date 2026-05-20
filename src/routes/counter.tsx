@@ -142,9 +142,10 @@ function OrdersView() {
                   {items.map((it) => {
                     const m = menu.find((x) => x.id === it.menu_item_id);
                     return (
-                      <li key={it.id} className="flex justify-between">
-                        <span>{it.quantity} × {m?.name ?? "?"}</span>
-                        <span className="text-muted-foreground">
+                      <li key={it.id} className="flex items-center justify-between gap-2">
+                        <span className="flex-1">{it.quantity} × {m?.name ?? "?"}</span>
+                        <ItemStatusPill status={it.status} />
+                        <span className="w-16 text-right text-muted-foreground">
                           ${m ? (Number(m.price) * it.quantity).toFixed(2) : "—"}
                         </span>
                       </li>
@@ -219,8 +220,8 @@ function OrdersView() {
 function StatusBadge({ status }: { status: Order["status"] }) {
   const map: Record<Order["status"], { label: string; bg: string }> = {
     placed: { label: "New", bg: "var(--warning)" },
-    in_kitchen: { label: "In kitchen", bg: "var(--counter)" },
-    preparing: { label: "Preparing", bg: "var(--counter)" },
+    in_kitchen: { label: "Preparing", bg: "var(--warning)" },
+    preparing: { label: "Preparing", bg: "var(--warning)" },
     ready: { label: "Ready", bg: "var(--success)" },
     billed: { label: "Billed", bg: "var(--muted)" },
   };
@@ -231,6 +232,21 @@ function StatusBadge({ status }: { status: Order["status"] }) {
       style={{ background: s.bg, color: "white" }}
     >
       {s.label}
+    </span>
+  );
+}
+
+function ItemStatusPill({ status }: { status: OrderItem["status"] }) {
+  const isReady = status === "ready";
+  return (
+    <span
+      className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+      style={{
+        background: isReady ? "var(--success)" : "var(--warning)",
+        color: "white",
+      }}
+    >
+      {isReady ? "Ready" : "Preparing"}
     </span>
   );
 }
