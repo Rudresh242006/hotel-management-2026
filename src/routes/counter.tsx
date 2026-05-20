@@ -15,7 +15,7 @@ import {
   type OrderItem,
   type TableRow,
 } from "@/lib/restaurant";
-import { ChefHat, CheckCircle2, Plus, Trash2, Settings, ClipboardList, DollarSign, Table as TableIcon, UtensilsCrossed } from "lucide-react";
+import { ChefHat, CheckCircle2, Plus, Trash2, Settings, ClipboardList, DollarSign, Table as TableIcon, UtensilsCrossed, Search } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
@@ -91,7 +91,19 @@ function OrdersView() {
     });
   }, [orders, tables]);
 
+  const [search, setSearch] = useState("");
   const active = orders.filter((o) => o.status !== "billed");
+  const filteredOrders = active.filter((o) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    const table = tables.find((t) => t.id === o.table_id);
+    if (table?.table_number.toString().includes(q)) return true;
+    const items = orderItems.filter((oi) => oi.order_id === o.id);
+    return items.some((it) => {
+      const m = menu.find((x) => x.id === it.menu_item_id);
+      return m?.name.toLowerCase().includes(q);
+    });
+  });
 
   async function forwardToKitchen(id: string) {
     await supabase.from("orders").update({ status: "in_kitchen" }).eq("id", id);
@@ -107,16 +119,27 @@ function OrdersView() {
   return (
     <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1.4fr_1fr]">
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Incoming orders ({active.length})
-        </h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Incoming orders ({filteredOrders.length})
+          </h2>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search table or item…"
+              className="h-8 w-44 rounded-md border bg-background pl-8 pr-3 text-sm"
+            />
+          </div>
+        </div>
         <div className="space-y-3">
-          {active.length === 0 && (
+          {filteredOrders.length === 0 && (
             <div className="rounded-xl border border-dashed p-12 text-center text-muted-foreground">
-              No active orders. Waiting…
+              {search.trim() ? "No orders match your search." : "No active orders. Waiting…"}
             </div>
           )}
-          {active.map((o) => {
+          {filteredOrders.map((o) => {
             const table = tables.find((t) => t.id === o.table_id);
             const items = orderItems.filter((oi) => oi.order_id === o.id);
             return (
@@ -181,37 +204,13 @@ function OrdersView() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Menu availability
-        </h2>
-        <div className="space-y-4 rounded-xl border bg-card p-4">
-          {Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)])).map((cat) => {
-            const items = menu.filter((m) => m.category === cat);
-            if (!items.length) return null;
-            return (
-              <div key={cat}>
-                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</p>
-                <ul className="space-y-1">
-                  {items.map((m) => (
-                    <li key={m.id} className="flex items-center justify-between rounded-md px-2 py-2 hover:bg-accent">
-                      <span className={`text-sm ${m.is_available ? "" : "text-muted-foreground line-through"}`}>
-                        {m.name}
-                      </span>
-                      <button
-                        onClick={() => toggleAvail(m)}
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          m.is_available ? "bg-success/20 text-foreground" : "bg-destructive/20 text-foreground"
-                        }`}
-                      >
-                        {m.is_available ? "Available" : "Unavailable"}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Menu availability
+          </h2>
+          <MenuSearch menu={menu} />
         </div>
+        <MenuAvailabilityList menu={menu} />
       </section>
     </main>
   );
@@ -248,6 +247,85 @@ function ItemStatusPill({ status }: { status: OrderItem["status"] }) {
     >
       {isReady ? "Ready" : "Preparing"}
     </span>
+  );
+}
+
+/* Shared menu search component */
+function MenuSearch({ menu }: { menu: MenuItem[] }) {
+  const [query, setQuery] = useState("");
+  const filtered = query.trim()
+    ? menu.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()))
+    : menu;
+  return (
+    <div className="relative">
+      <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search item…"
+        className="h-8 w-40 rounded-md border bg-background pl-8 pr-3 text-sm"
+      />
+      {query.trim() && (
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+          {filtered.length}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function MenuAvailabilityList({ menu }: { menu: MenuItem[] }) {
+  const [query, setQuery] = useState("");
+  async function toggleAvail(item: MenuItem) {
+    await supabase.from("menu_items").update({ is_available: !item.is_available }).eq("id", item.id);
+  }
+  const q = query.trim().toLowerCase();
+  const cats = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)]));
+  return (
+    <div className="space-y-4 rounded-xl border bg-card p-4">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search item or category…"
+          className="h-8 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
+        />
+        {q && (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+            {menu.filter((m) => m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q)).length}
+          </span>
+        )}
+      </div>
+      {cats.map((cat) => {
+        const items = menu.filter((m) => m.category === cat && (!q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q)));
+        if (!items.length) return null;
+        return (
+          <div key={cat}>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</p>
+            <ul className="space-y-1">
+              {items.map((m) => (
+                <li key={m.id} className="flex items-center justify-between rounded-md px-2 py-2 hover:bg-accent">
+                  <span className={`text-sm ${m.is_available ? "" : "text-muted-foreground line-through"}`}>
+                    {m.name}
+                  </span>
+                  <button
+                    onClick={() => toggleAvail(m)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      m.is_available
+                        ? "bg-success/20 text-foreground"
+                        : "bg-destructive/20 text-foreground"
+                    }`}
+                  >
+                    {m.is_available ? "Available" : "Unavailable"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -313,6 +391,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
 function PriceEditor() {
   const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState("");
 
   async function savePrice(item: MenuItem) {
     const raw = edits[item.id];
@@ -332,11 +411,26 @@ function PriceEditor() {
   }
 
   const allCategories = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)]));
+  const q = search.trim().toLowerCase();
 
   return (
     <div className="max-h-[60vh] space-y-4 overflow-y-auto">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search item…"
+          className="h-8 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
+        />
+        {q && (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+            {menu.filter((m) => m.name.toLowerCase().includes(q)).length}
+          </span>
+        )}
+      </div>
       {allCategories.map((cat) => {
-        const items = menu.filter((m) => m.category === cat);
+        const items = menu.filter((m) => m.category === cat && (!q || m.name.toLowerCase().includes(q)));
         if (!items.length) return null;
         return (
           <div key={cat}>
@@ -444,6 +538,7 @@ function MenuItemManager() {
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
   const [newCategory, setNewCategory] = useState("");
   const [price, setPrice] = useState("");
+  const [search, setSearch] = useState("");
 
   function addCategory() {
     const trimmed = newCategory.trim();
@@ -485,6 +580,14 @@ function MenuItemManager() {
     else toast.success(`Removed ${m.name}`);
   }
 
+  const activeCat = category === NEW_CATEGORY ? newCategory.trim() : category;
+  const q = search.trim().toLowerCase();
+  const filtered = menu.filter((m) => {
+    const matchesCat = !activeCat || m.category.toLowerCase() === activeCat.toLowerCase();
+    const matchesSearch = !q || m.name.toLowerCase().includes(q);
+    return matchesCat && matchesSearch;
+  });
+
   return (
     <div>
       <form
@@ -495,7 +598,7 @@ function MenuItemManager() {
         className="mb-4 space-y-2 rounded-lg border bg-muted/30 p-3"
       >
         <p className="text-xs text-muted-foreground">
-          Tip: choose “Add new category”, type the category, then press Enter or Add Category. After that, add items under it.
+          Tip: choose "Add new category", type the category, then press Enter or Add Category. After that, add items under it.
         </p>
         <input
           value={name}
@@ -556,40 +659,48 @@ function MenuItemManager() {
           <Plus className="h-4 w-4" /> Add Item
         </button>
       </form>
-      {(() => {
-        const activeCat = category === NEW_CATEGORY ? newCategory.trim() : category;
-        const filtered = menu.filter((m) => !activeCat || m.category.toLowerCase() === activeCat.toLowerCase());
-        return (
-          <>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {activeCat ? `Items in "${activeCat}" (${filtered.length})` : `All items (${menu.length})`}
-            </p>
-            <ul className="max-h-[45vh] space-y-1 overflow-y-auto">
-              {filtered.length === 0 && (
-                <li className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
-                  No items in this category yet.
-                </li>
-              )}
-              {filtered.map((m) => (
-                <li key={m.id} className="flex items-center justify-between rounded-md border px-3 py-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{m.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {m.category} · ${Number(m.price).toFixed(2)}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => removeItem(m)}
-                    className="rounded-md p-2 text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </>
-        );
-      })()}
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {activeCat ? `Items in "${activeCat}" (${filtered.length})` : `All items (${menu.length})`}
+        </p>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search item…"
+            className="h-8 w-40 rounded-md border bg-background pl-8 pr-3 text-sm"
+          />
+          {q && (
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+              {filtered.length}
+            </span>
+          )}
+        </div>
+      </div>
+      <ul className="max-h-[45vh] space-y-1 overflow-y-auto">
+        {filtered.length === 0 && (
+          <li className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
+            No items match your search.
+          </li>
+        )}
+        {filtered.map((m) => (
+          <li key={m.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{m.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {m.category} · ${Number(m.price).toFixed(2)}
+              </p>
+            </div>
+            <button
+              onClick={() => removeItem(m)}
+              className="rounded-md p-2 text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
