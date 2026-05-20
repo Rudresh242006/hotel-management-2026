@@ -184,7 +184,7 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
                 {billRows.map((r) => (
                   <li key={r.key} className="flex items-center justify-between gap-2">
                     <span className="flex-1">{r.qty} × {r.item.name}</span>
-                    <ItemStatusBadge orderStatus={r.orderStatus} unavailable={!r.item.is_available} />
+                    <ItemStatusBadge itemStatus={r.itemStatus} unavailable={!r.item.is_available} />
                     <span className="w-16 text-right font-medium">${(r.qty * Number(r.item.price)).toFixed(2)}</span>
                   </li>
                 ))}
