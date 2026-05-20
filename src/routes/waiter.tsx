@@ -90,15 +90,14 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
   const tableOrderItems = orderItems.filter((oi) => tableOrders.some((o) => o.id === oi.order_id));
 
   const billRows = useMemo(() => {
-    const rows: { key: string; item: MenuItem; qty: number; orderStatus: Order["status"] }[] = [];
+    const rows: { key: string; item: MenuItem; qty: number; itemStatus: OrderItem["status"] }[] = [];
     tableOrderItems.forEach((oi) => {
       const item = menu.find((m) => m.id === oi.menu_item_id);
-      const order = tableOrders.find((o) => o.id === oi.order_id);
-      if (!item || !order) return;
-      rows.push({ key: oi.id, item, qty: oi.quantity, orderStatus: order.status });
+      if (!item) return;
+      rows.push({ key: oi.id, item, qty: oi.quantity, itemStatus: oi.status });
     });
     return rows;
-  }, [tableOrderItems, menu, tableOrders]);
+  }, [tableOrderItems, menu]);
 
   const billTotal = billRows.reduce((sum, r) => sum + r.qty * Number(r.item.price), 0);
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
