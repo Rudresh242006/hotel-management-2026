@@ -320,6 +320,9 @@ function AdminPanel() {
         <AdminAccordionItem value="menu" title="Menu Item Manager" icon={<UtensilsCrossed className="h-4 w-4" />}>
           <MenuItemManager />
         </AdminAccordionItem>
+        <AdminAccordionItem value="history" title="Sales History" icon={<History className="h-4 w-4" />}>
+          <SalesHistory />
+        </AdminAccordionItem>
       </Accordion>
     </main>
   );
