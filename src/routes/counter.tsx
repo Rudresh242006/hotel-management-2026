@@ -208,7 +208,6 @@ function OrdersView() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Menu availability
           </h2>
-          <MenuSearch menu={menu} />
         </div>
         <MenuAvailabilityList menu={menu} />
       </section>
@@ -250,29 +249,6 @@ function ItemStatusPill({ status }: { status: OrderItem["status"] }) {
   );
 }
 
-/* Shared menu search component */
-function MenuSearch({ menu }: { menu: MenuItem[] }) {
-  const [query, setQuery] = useState("");
-  const filtered = query.trim()
-    ? menu.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()))
-    : menu;
-  return (
-    <div className="relative">
-      <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search item…"
-        className="h-8 w-40 rounded-md border bg-background pl-8 pr-3 text-sm"
-      />
-      {query.trim() && (
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-          {filtered.length}
-        </span>
-      )}
-    </div>
-  );
-}
 
 function MenuAvailabilityList({ menu }: { menu: MenuItem[] }) {
   const [query, setQuery] = useState("");
