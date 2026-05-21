@@ -48,7 +48,7 @@ export async function fetchMenu(): Promise<MenuItem[]> {
   return (data ?? []) as MenuItem[];
 }
 export async function fetchOrders(): Promise<Order[]> {
-  const { data } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
+  const { data } = await supabase.from("orders").select("*").order("created_at", { ascending: true });
   return (data ?? []) as Order[];
 }
 export async function fetchOrderItems(): Promise<OrderItem[]> {
