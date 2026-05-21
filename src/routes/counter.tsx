@@ -208,7 +208,6 @@ function OrdersView() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Menu availability
           </h2>
-          <MenuSearch menu={menu} />
         </div>
         <MenuAvailabilityList menu={menu} />
       </section>
