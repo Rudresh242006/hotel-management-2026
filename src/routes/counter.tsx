@@ -308,47 +308,48 @@ function MenuAvailabilityList({ menu }: { menu: MenuItem[] }) {
 /* ============ ADMIN PANEL ============ */
 
 function AdminPanel() {
+  const sections = [
+    { key: "prices", title: "Menu Price Editor", icon: <DollarSign className="h-4 w-4" />, render: () => <PriceEditor /> },
+    { key: "tables", title: "Table Manager", icon: <TableIcon className="h-4 w-4" />, render: () => <TableManager /> },
+    { key: "menu", title: "Menu Item Manager", icon: <UtensilsCrossed className="h-4 w-4" />, render: () => <MenuItemManager /> },
+    { key: "history", title: "Sales History", icon: <History className="h-4 w-4" />, render: () => <SalesHistory /> },
+  ] as const;
+  const [active, setActive] = useState<(typeof sections)[number]["key"]>("prices");
+  const current = sections.find((s) => s.key === active)!;
+
   return (
     <main className="mx-auto max-w-4xl px-6 py-8">
-      <Accordion type="single" collapsible defaultValue="prices" className="space-y-3">
-        <AdminAccordionItem value="prices" title="Menu Price Editor" icon={<DollarSign className="h-4 w-4" />}>
-          <PriceEditor />
-        </AdminAccordionItem>
-        <AdminAccordionItem value="tables" title="Table Manager" icon={<TableIcon className="h-4 w-4" />}>
-          <TableManager />
-        </AdminAccordionItem>
-        <AdminAccordionItem value="menu" title="Menu Item Manager" icon={<UtensilsCrossed className="h-4 w-4" />}>
-          <MenuItemManager />
-        </AdminAccordionItem>
-        <AdminAccordionItem value="history" title="Sales History" icon={<History className="h-4 w-4" />}>
-          <SalesHistory />
-        </AdminAccordionItem>
-      </Accordion>
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {sections.map((s) => {
+          const isActive = s.key === active;
+          return (
+            <button
+              key={s.key}
+              onClick={() => setActive(s.key)}
+              className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-xs font-bold uppercase tracking-wider shadow-sm transition ${
+                isActive ? "" : "border bg-card text-foreground hover:bg-accent"
+              }`}
+              style={
+                isActive
+                  ? { background: "var(--counter)", color: "var(--counter-foreground)" }
+                  : undefined
+              }
+            >
+              {s.icon} {s.title}
+            </button>
+          );
+        })}
+      </div>
+      <section className="rounded-xl border bg-card shadow-sm">
+        <header
+          className="rounded-t-xl px-4 py-3 text-sm font-bold uppercase tracking-wider"
+          style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+        >
+          <span className="flex items-center gap-2">{current.icon} {current.title}</span>
+        </header>
+        <div className="p-4">{current.render()}</div>
+      </section>
     </main>
-  );
-}
-
-function AdminAccordionItem({
-  value,
-  title,
-  icon,
-  children,
-}: {
-  value: string;
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <AccordionItem value={value} className="overflow-hidden rounded-xl border bg-card shadow-sm">
-      <AccordionTrigger
-        className="px-4 py-3 text-sm font-bold uppercase tracking-wider hover:no-underline"
-        style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
-      >
-        <span className="flex items-center gap-2">{icon} {title}</span>
-      </AccordionTrigger>
-      <AccordionContent className="p-4">{children}</AccordionContent>
-    </AccordionItem>
   );
 }
 
