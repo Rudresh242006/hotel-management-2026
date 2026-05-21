@@ -683,3 +683,100 @@ function MenuItemManager() {
     </div>
   );
 }
+
+type Period = "today" | "week" | "month" | "year" | "lifetime";
+
+function SalesHistory() {
+  const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
+  const { data: orderItems } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
+  const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
+  const [period, setPeriod] = useState<Period>("today");
+
+  const periods: { key: Period; label: string }[] = [
+    { key: "today", label: "Today" },
+    { key: "week", label: "1 Week" },
+    { key: "month", label: "1 Month" },
+    { key: "year", label: "1 Year" },
+    { key: "lifetime", label: "Lifetime" },
+  ];
+
+  const since = (() => {
+    const d = new Date();
+    if (period === "today") { d.setHours(0, 0, 0, 0); return d; }
+    if (period === "week") { d.setDate(d.getDate() - 7); return d; }
+    if (period === "month") { d.setMonth(d.getMonth() - 1); return d; }
+    if (period === "year") { d.setFullYear(d.getFullYear() - 1); return d; }
+    return new Date(0);
+  })();
+
+  const billed = orders.filter((o) => o.status === "billed" && new Date(o.updated_at) >= since);
+  const billedIds = new Set(billed.map((o) => o.id));
+  const items = orderItems.filter((it) => billedIds.has(it.order_id));
+
+  const stats = new Map<string, { name: string; qty: number; revenue: number }>();
+  let total = 0;
+  for (const it of items) {
+    const m = menu.find((x) => x.id === it.menu_item_id);
+    if (!m) continue;
+    const rev = Number(m.price) * it.quantity;
+    total += rev;
+    const cur = stats.get(m.id) ?? { name: m.name, qty: 0, revenue: 0 };
+    cur.qty += it.quantity;
+    cur.revenue += rev;
+    stats.set(m.id, cur);
+  }
+  const rows = Array.from(stats.values()).sort((a, b) => b.revenue - a.revenue);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        {periods.map((p) => (
+          <button
+            key={p.key}
+            onClick={() => setPeriod(p.key)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              period === p.key
+                ? "text-white"
+                : "bg-muted text-foreground hover:bg-accent"
+            }`}
+            style={period === p.key ? { background: "var(--counter)", color: "var(--counter-foreground)" } : undefined}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border bg-card p-4">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Total Sales</p>
+          <p className="mt-1 text-2xl font-bold">${total.toFixed(2)}</p>
+        </div>
+        <div className="rounded-xl border bg-card p-4">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Orders Billed</p>
+          <p className="mt-1 text-2xl font-bold">{billed.length}</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border bg-card">
+        <div className="border-b px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          Items sold
+        </div>
+        {rows.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            No sales in this period.
+          </div>
+        ) : (
+          <ul className="max-h-[50vh] divide-y overflow-y-auto">
+            {rows.map((r) => (
+              <li key={r.name} className="flex items-center justify-between px-4 py-2 text-sm">
+                <span className="flex-1 truncate">{r.name}</span>
+                <span className="w-16 text-right text-muted-foreground">× {r.qty}</span>
+                <span className="w-24 text-right font-semibold">${r.revenue.toFixed(2)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
