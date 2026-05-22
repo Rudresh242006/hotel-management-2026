@@ -797,7 +797,7 @@ function SalesHistory() {
               <li key={r.name} className="flex items-center justify-between px-4 py-2 text-sm">
                 <span className="flex-1 truncate">{r.name}</span>
                 <span className="w-16 text-right text-muted-foreground">× {r.qty}</span>
-                <span className="w-24 text-right font-semibold">${r.revenue.toFixed(2)}</span>
+                <span className="w-24 text-right font-semibold">₹{r.revenue.toFixed(2)}</span>
               </li>
             ))}
           </ul>
