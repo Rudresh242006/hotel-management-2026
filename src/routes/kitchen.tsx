@@ -68,9 +68,29 @@ function KitchenPage() {
       ) : (
       <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1.6fr_1fr]">
         <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Tickets ({queue.length})
-          </h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Tickets ({queue.length})
+            </h2>
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold"
+                  style={{ background: "var(--kitchen)", color: "var(--kitchen-foreground)" }}
+                >
+                  <BookOpen className="h-4 w-4" /> Menu
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Ban className="h-5 w-5" /> 86 the menu
+                  </DialogTitle>
+                </DialogHeader>
+                <Menu86List menu={menu} />
+              </DialogContent>
+            </Dialog>
+          </div>
           {queue.length === 0 ? (
             <div className="rounded-xl border border-dashed p-16 text-center text-muted-foreground">
               No tickets. Kitchen idle.
