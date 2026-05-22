@@ -694,7 +694,7 @@ function MenuItemManager() {
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{m.name}</p>
               <p className="text-xs text-muted-foreground">
-                {m.category} · ${Number(m.price).toFixed(2)}
+                {m.category} · ₹{Number(m.price).toFixed(2)}
               </p>
             </div>
             <button
