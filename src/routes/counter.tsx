@@ -775,7 +775,7 @@ function SalesHistory() {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border bg-card p-4">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Total Sales</p>
-          <p className="mt-1 text-2xl font-bold">${total.toFixed(2)}</p>
+          <p className="mt-1 text-2xl font-bold">₹{total.toFixed(2)}</p>
         </div>
         <div className="rounded-xl border bg-card p-4">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Orders Billed</p>
