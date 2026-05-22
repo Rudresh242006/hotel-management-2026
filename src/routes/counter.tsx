@@ -314,7 +314,7 @@ function MenuAvailabilityList({ menu }: { menu: MenuItem[] }) {
 
 function AdminPanel() {
   const sections = [
-    { key: "prices", title: "Menu Price Editor", icon: <DollarSign className="h-4 w-4" />, render: () => <PriceEditor /> },
+    { key: "prices", title: "Menu Price Editor", icon: <IndianRupee className="h-4 w-4" />, render: () => <PriceEditor /> },
     { key: "tables", title: "Table Manager", icon: <TableIcon className="h-4 w-4" />, render: () => <TableManager /> },
     { key: "menu", title: "Menu Item Manager", icon: <UtensilsCrossed className="h-4 w-4" />, render: () => <MenuItemManager /> },
     { key: "history", title: "Sales History", icon: <History className="h-4 w-4" />, render: () => <SalesHistory /> },
