@@ -159,7 +159,7 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
     await supabase.from("orders").update({ status: "billed" }).in("id", tableOrders.map((o) => o.id));
     await supabase.from("tables").update({ status: "free" }).eq("id", table.id);
     setBusy(false);
-    toast.success(`Bill generated · $${billTotal.toFixed(2)}`);
+    toast.success(`Bill generated · ₹${billTotal.toFixed(2)}`);
     onClose();
   }
 
