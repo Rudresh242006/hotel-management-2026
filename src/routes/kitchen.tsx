@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { RoleHeader } from "@/components/RoleHeader";
@@ -37,7 +37,20 @@ function KitchenPage() {
   const { data: orderItems, loading: loi } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
   const initialLoading = lt && lm && lo && loi;
 
-  const queue = orders.filter((o) => ["in_kitchen", "preparing", "ready"].includes(o.status));
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const [view, setView] = useState<"active" | "ready">("active");
+
+  const THIRTY_MIN = 30 * 60 * 1000;
+  const activeQueue = orders.filter((o) => ["in_kitchen", "preparing"].includes(o.status));
+  const readyArchive = orders
+    .filter((o) => o.status === "ready" && now - new Date(o.updated_at).getTime() < THIRTY_MIN)
+    .slice()
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+  const queue = view === "active" ? activeQueue : readyArchive;
 
   async function setItemStatus(itemId: string, orderId: string, status: "preparing" | "ready") {
     await supabase.from("order_items").update({ status }).eq("id", itemId);
@@ -68,10 +81,31 @@ function KitchenPage() {
       ) : (
       <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1.6fr_1fr]">
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Tickets ({queue.length})
-            </h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex gap-1 rounded-lg border bg-card p-1">
+              <button
+                onClick={() => setView("active")}
+                className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition"
+                style={
+                  view === "active"
+                    ? { background: "var(--kitchen)", color: "var(--kitchen-foreground)" }
+                    : { color: "var(--muted-foreground)" }
+                }
+              >
+                <Flame className="h-3.5 w-3.5" /> Active ({activeQueue.length})
+              </button>
+              <button
+                onClick={() => setView("ready")}
+                className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition"
+                style={
+                  view === "ready"
+                    ? { background: "var(--success)", color: "white" }
+                    : { color: "var(--muted-foreground)" }
+                }
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Ready · 30 min ({readyArchive.length})
+              </button>
+            </div>
             <Dialog>
               <DialogTrigger asChild>
                 <button
@@ -93,7 +127,7 @@ function KitchenPage() {
           </div>
           {queue.length === 0 ? (
             <div className="rounded-xl border border-dashed p-16 text-center text-muted-foreground">
-              No tickets. Kitchen idle.
+              {view === "active" ? "No tickets. Kitchen idle." : "No orders marked ready in the last 30 minutes."}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
@@ -134,7 +168,7 @@ function KitchenPage() {
                         return (
                           <li key={it.id} className="flex items-center gap-3">
                             <span className="text-2xl font-bold tabular-nums" style={{ color: itemAccent }}>
-                              {it.quantity}×
+                              {Number(it.quantity)}×
                             </span>
                             <div className="flex-1 min-w-0">
                               <p className="text-base truncate">{m?.name ?? "?"}</p>

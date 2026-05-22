@@ -15,9 +15,14 @@ import {
   type OrderItem,
   type TableRow,
 } from "@/lib/restaurant";
-import { ChefHat, CheckCircle2, Plus, Trash2, Settings, ClipboardList, DollarSign, Table as TableIcon, UtensilsCrossed, Search, History } from "lucide-react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ChefHat, CheckCircle2, Plus, Trash2, Settings, ClipboardList, IndianRupee, Table as TableIcon, UtensilsCrossed, Search, History, BookOpen, Ban } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { LoadingScreen } from "@/components/LoadingScreen";
+
+function formatQty(q: number) {
+  if (Number.isInteger(q)) return String(q);
+  return q.toString();
+}
 
 export const Route = createFileRoute("/counter")({
   component: CounterPage,
@@ -119,18 +124,38 @@ function OrdersView() {
   return (
     <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1.4fr_1fr]">
       <section>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Incoming orders ({filteredOrders.length})
           </h2>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search table or item…"
-              className="h-8 w-44 rounded-md border bg-background pl-8 pr-3 text-sm"
-            />
+          <div className="flex items-center gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold"
+                  style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+                >
+                  <BookOpen className="h-4 w-4" /> Menu
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Ban className="h-5 w-5" /> Menu availability
+                  </DialogTitle>
+                </DialogHeader>
+                <MenuAvailabilityList menu={menu} />
+              </DialogContent>
+            </Dialog>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search table or item…"
+                className="h-8 w-44 rounded-md border bg-background pl-8 pr-3 text-sm"
+              />
+            </div>
           </div>
         </div>
         <div className="space-y-3">
@@ -166,10 +191,10 @@ function OrdersView() {
                     const m = menu.find((x) => x.id === it.menu_item_id);
                     return (
                       <li key={it.id} className="flex items-center justify-between gap-2">
-                        <span className="flex-1">{it.quantity} × {m?.name ?? "?"}</span>
+                        <span className="flex-1">{formatQty(Number(it.quantity))} × {m?.name ?? "?"}</span>
                         <ItemStatusPill status={it.status} />
                         <span className="w-16 text-right text-muted-foreground">
-                          ${m ? (Number(m.price) * it.quantity).toFixed(2) : "—"}
+                          {m ? `₹${(Number(m.price) * Number(it.quantity)).toFixed(2)}` : "—"}
                         </span>
                       </li>
                     );
@@ -309,7 +334,7 @@ function MenuAvailabilityList({ menu }: { menu: MenuItem[] }) {
 
 function AdminPanel() {
   const sections = [
-    { key: "prices", title: "Menu Price Editor", icon: <DollarSign className="h-4 w-4" />, render: () => <PriceEditor /> },
+    { key: "prices", title: "Menu Price Editor", icon: <IndianRupee className="h-4 w-4" />, render: () => <PriceEditor /> },
     { key: "tables", title: "Table Manager", icon: <TableIcon className="h-4 w-4" />, render: () => <TableManager /> },
     { key: "menu", title: "Menu Item Manager", icon: <UtensilsCrossed className="h-4 w-4" />, render: () => <MenuItemManager /> },
     { key: "history", title: "Sales History", icon: <History className="h-4 w-4" />, render: () => <SalesHistory /> },
@@ -421,7 +446,7 @@ function PriceEditor() {
                 return (
                   <li key={m.id} className="flex items-center gap-2">
                     <span className="flex-1 truncate text-sm">{m.name}</span>
-                    <span className="text-xs text-muted-foreground">$</span>
+                    <span className="text-xs text-muted-foreground">₹</span>
                     <input
                       type="number"
                       step="0.01"
@@ -669,7 +694,7 @@ function MenuItemManager() {
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{m.name}</p>
               <p className="text-xs text-muted-foreground">
-                {m.category} · ${Number(m.price).toFixed(2)}
+                {m.category} · ₹{Number(m.price).toFixed(2)}
               </p>
             </div>
             <button
@@ -750,7 +775,7 @@ function SalesHistory() {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border bg-card p-4">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Total Sales</p>
-          <p className="mt-1 text-2xl font-bold">${total.toFixed(2)}</p>
+          <p className="mt-1 text-2xl font-bold">₹{total.toFixed(2)}</p>
         </div>
         <div className="rounded-xl border bg-card p-4">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Orders Billed</p>
@@ -772,7 +797,7 @@ function SalesHistory() {
               <li key={r.name} className="flex items-center justify-between px-4 py-2 text-sm">
                 <span className="flex-1 truncate">{r.name}</span>
                 <span className="w-16 text-right text-muted-foreground">× {r.qty}</span>
-                <span className="w-24 text-right font-semibold">${r.revenue.toFixed(2)}</span>
+                <span className="w-24 text-right font-semibold">₹{r.revenue.toFixed(2)}</span>
               </li>
             ))}
           </ul>
