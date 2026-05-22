@@ -124,18 +124,38 @@ function OrdersView() {
   return (
     <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1.4fr_1fr]">
       <section>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Incoming orders ({filteredOrders.length})
           </h2>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search table or item…"
-              className="h-8 w-44 rounded-md border bg-background pl-8 pr-3 text-sm"
-            />
+          <div className="flex items-center gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold"
+                  style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+                >
+                  <BookOpen className="h-4 w-4" /> Menu
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Ban className="h-5 w-5" /> Menu availability
+                  </DialogTitle>
+                </DialogHeader>
+                <MenuAvailabilityList menu={menu} />
+              </DialogContent>
+            </Dialog>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search table or item…"
+                className="h-8 w-44 rounded-md border bg-background pl-8 pr-3 text-sm"
+              />
+            </div>
           </div>
         </div>
         <div className="space-y-3">
