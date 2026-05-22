@@ -4,6 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { RoleHeader } from "@/components/RoleHeader";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { RoleHeader } from "@/components/RoleHeader";
+import {
   CATEGORIES,
   fetchMenu,
   fetchOrderItems,
