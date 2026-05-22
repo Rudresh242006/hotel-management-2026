@@ -198,20 +198,20 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
               <ul className="space-y-2 text-sm">
                 {billRows.map((r) => (
                   <li key={r.key} className="flex items-center justify-between gap-2">
-                    <span className="flex-1">{r.qty} × {r.item.name}</span>
+                    <span className="flex-1">{formatQty(Number(r.qty))} × {r.item.name}</span>
                     <ItemStatusBadge itemStatus={r.itemStatus} unavailable={!r.item.is_available} />
-                    <span className="w-16 text-right font-medium">${(r.qty * Number(r.item.price)).toFixed(2)}</span>
+                    <span className="w-16 text-right font-medium">₹{(Number(r.qty) * Number(r.item.price)).toFixed(2)}</span>
                   </li>
                 ))}
               </ul>
               <div className="mt-3 flex justify-between border-t pt-3 text-base font-bold">
                 <span>Total</span>
-                <span>${billTotal.toFixed(2)}</span>
+                <span>₹{billTotal.toFixed(2)}</span>
               </div>
             </section>
           )}
 
-          <div className="relative mb-4">
+          <div className="relative mb-3">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               value={search}
@@ -226,7 +226,23 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
             )}
           </div>
 
-          {visibleCategories.map((cat) => {
+          {/* Category quick-filter chips */}
+          <div className="mb-4 -mx-6 overflow-x-auto px-6">
+            <div className="flex gap-2 pb-1">
+              <CategoryChip active={activeCat === "__all__"} onClick={() => setActiveCat("__all__")}>
+                Full Menu
+              </CategoryChip>
+              {allCategories.map((cat) => (
+                <CategoryChip key={cat} active={activeCat === cat} onClick={() => setActiveCat(cat)}>
+                  {cat}
+                </CategoryChip>
+              ))}
+            </div>
+          </div>
+
+          {visibleCategories
+            .filter((cat) => activeCat === "__all__" || cat === activeCat)
+            .map((cat) => {
             const items = menu.filter((m) => m.category === cat && (!q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q)));
             if (items.length === 0) return null;
             return (
@@ -243,26 +259,36 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
                           disabled ? "opacity-40" : ""
                         }`}
                       >
-                        <div>
-                          <p className="font-medium">{m.name}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium truncate">{m.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            ${Number(m.price).toFixed(2)} {disabled && "· Unavailable"}
+                            ₹{Number(m.price).toFixed(2)} {disabled && "· Unavailable"}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <button
                             disabled={disabled || qty === 0}
-                            onClick={() => setQty(m.id, qty - 1)}
+                            onClick={() => setQty(m.id, qty - 0.5)}
                             className="rounded-md border p-2 disabled:opacity-30"
+                            title="Remove half"
                           >
                             <Minus className="h-4 w-4" />
                           </button>
-                          <span className="w-6 text-center font-semibold">{qty}</span>
+                          <span className="w-10 text-center font-semibold tabular-nums">{formatQty(qty)}</span>
+                          <button
+                            disabled={disabled}
+                            onClick={() => setQty(m.id, qty + 0.5)}
+                            className="rounded-md border px-2 py-2 text-xs font-bold disabled:opacity-30"
+                            title="Add half plate"
+                          >
+                            ½
+                          </button>
                           <button
                             disabled={disabled}
                             onClick={() => setQty(m.id, qty + 1)}
                             className="rounded-md border p-2 disabled:opacity-30"
                             style={{ background: "var(--waiter)", color: "var(--waiter-foreground)", borderColor: "transparent" }}
+                            title="Add full plate"
                           >
                             <Plus className="h-4 w-4" />
                           </button>
