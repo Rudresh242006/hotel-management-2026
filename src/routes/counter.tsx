@@ -15,9 +15,14 @@ import {
   type OrderItem,
   type TableRow,
 } from "@/lib/restaurant";
-import { ChefHat, CheckCircle2, Plus, Trash2, Settings, ClipboardList, DollarSign, Table as TableIcon, UtensilsCrossed, Search, History } from "lucide-react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ChefHat, CheckCircle2, Plus, Trash2, Settings, ClipboardList, IndianRupee, Table as TableIcon, UtensilsCrossed, Search, History, BookOpen, Ban } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { LoadingScreen } from "@/components/LoadingScreen";
+
+function formatQty(q: number) {
+  if (Number.isInteger(q)) return String(q);
+  return q.toString();
+}
 
 export const Route = createFileRoute("/counter")({
   component: CounterPage,
