@@ -367,3 +367,25 @@ function ItemStatusBadge({
     </span>
   );
 }
+
+function CategoryChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${
+        active ? "" : "bg-card text-foreground hover:bg-accent"
+      }`}
+      style={active ? { background: "var(--waiter)", color: "var(--waiter-foreground)", borderColor: "transparent" } : undefined}
+    >
+      {children}
+    </button>
+  );
+}
