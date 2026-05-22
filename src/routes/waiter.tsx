@@ -111,10 +111,14 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
   function setQty(id: string, qty: number) {
     setCart((c) => {
       const n = { ...c };
-      if (qty <= 0) delete n[id];
-      else n[id] = qty;
+      const rounded = Math.round(qty * 2) / 2; // snap to halves
+      if (rounded <= 0) delete n[id];
+      else n[id] = rounded;
       return n;
     });
+  }
+  function formatQty(q: number) {
+    return Number.isInteger(q) ? String(q) : q.toString();
   }
 
   async function placeOrder() {
