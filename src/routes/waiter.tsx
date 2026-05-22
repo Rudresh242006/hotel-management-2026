@@ -310,8 +310,8 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
         <div className="border-t bg-card p-4">
           {cartCount > 0 && (
             <div className="mb-3 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{cartCount} new item(s)</span>
-              <span className="font-semibold">${cartTotal.toFixed(2)}</span>
+              <span className="text-muted-foreground">{formatQty(cartCount)} new item(s)</span>
+              <span className="font-semibold">₹{cartTotal.toFixed(2)}</span>
             </div>
           )}
           <div className="flex gap-2">
