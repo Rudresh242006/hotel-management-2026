@@ -86,6 +86,7 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
   const [cart, setCart] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
+  const [activeCat, setActiveCat] = useState<string>("__all__");
 
   const tableOrders = orders.filter((o) => o.table_id === table.id && o.status !== "billed");
   const tableOrderItems = orderItems.filter((oi) => tableOrders.some((o) => o.id === oi.order_id));
