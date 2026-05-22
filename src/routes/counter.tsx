@@ -446,7 +446,7 @@ function PriceEditor() {
                 return (
                   <li key={m.id} className="flex items-center gap-2">
                     <span className="flex-1 truncate text-sm">{m.name}</span>
-                    <span className="text-xs text-muted-foreground">$</span>
+                    <span className="text-xs text-muted-foreground">₹</span>
                     <input
                       type="number"
                       step="0.01"
