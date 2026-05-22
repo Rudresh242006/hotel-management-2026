@@ -37,7 +37,20 @@ function KitchenPage() {
   const { data: orderItems, loading: loi } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
   const initialLoading = lt && lm && lo && loi;
 
-  const queue = orders.filter((o) => ["in_kitchen", "preparing", "ready"].includes(o.status));
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const [view, setView] = useState<"active" | "ready">("active");
+
+  const THIRTY_MIN = 30 * 60 * 1000;
+  const activeQueue = orders.filter((o) => ["in_kitchen", "preparing"].includes(o.status));
+  const readyArchive = orders
+    .filter((o) => o.status === "ready" && now - new Date(o.updated_at).getTime() < THIRTY_MIN)
+    .slice()
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+  const queue = view === "active" ? activeQueue : readyArchive;
 
   async function setItemStatus(itemId: string, orderId: string, status: "preparing" | "ready") {
     await supabase.from("order_items").update({ status }).eq("id", itemId);
