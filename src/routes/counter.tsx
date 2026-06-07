@@ -189,9 +189,11 @@ function OrdersView() {
                 <ul className="mb-3 space-y-1 text-sm">
                   {items.map((it) => {
                     const m = menu.find((x) => x.id === it.menu_item_id);
+                    const isHalf = it.half_quantity > 0;
+                    const displayQty = isHalf ? `${it.half_quantity} half` : formatQty(Number(it.quantity));
                     return (
                       <li key={it.id} className="flex items-center justify-between gap-2">
-                        <span className="flex-1">{formatQty(Number(it.quantity))} × {m?.name ?? "?"}</span>
+                        <span className="flex-1">{displayQty} × {m?.name ?? "?"}</span>
                         <ItemStatusPill status={it.status} />
                         <span className="w-16 text-right text-muted-foreground">
                           {m ? `₹${(Number(m.price) * Number(it.quantity)).toFixed(2)}` : "—"}
@@ -543,6 +545,7 @@ function MenuItemManager() {
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
   const [newCategory, setNewCategory] = useState("");
   const [price, setPrice] = useState("");
+  const [allowHalf, setAllowHalf] = useState(false);
   const [search, setSearch] = useState("");
 
   function addCategory() {
@@ -567,7 +570,7 @@ function MenuItemManager() {
     }
     const { error } = await supabase
       .from("menu_items")
-      .insert({ name: name.trim(), category: finalCategory, price: p, is_available: true });
+      .insert({ name: name.trim(), category: finalCategory, price: p, is_available: true, allow_half: allowHalf });
     if (error) {
       toast.error(error.message);
       return;
@@ -575,6 +578,7 @@ function MenuItemManager() {
     setName("");
     setPrice("");
     setNewCategory("");
+    setAllowHalf(false);
     setCategory(finalCategory);
     toast.success(`Added ${name}`);
   }
@@ -583,6 +587,11 @@ function MenuItemManager() {
     const { error } = await supabase.from("menu_items").delete().eq("id", m.id);
     if (error) toast.error(error.message);
     else toast.success(`Removed ${m.name}`);
+  }
+
+  async function toggleAllowHalf(m: MenuItem) {
+    await supabase.from("menu_items").update({ allow_half: !m.allow_half }).eq("id", m.id);
+    toast.success(m.allow_half ? `${m.name} half plate disabled` : `${m.name} half plate enabled`);
   }
 
   const activeCat = category === NEW_CATEGORY ? newCategory.trim() : category;
@@ -630,6 +639,16 @@ function MenuItemManager() {
             placeholder="Price"
             className="w-24 rounded-md border bg-background px-2 py-1.5 text-sm"
           />
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="allowHalf"
+            checked={allowHalf}
+            onChange={(e) => setAllowHalf(e.target.checked)}
+            className="rounded"
+          />
+          <label htmlFor="allowHalf" className="text-sm">Allow half plate/glass</label>
         </div>
         {category === NEW_CATEGORY && (
           <div className="flex gap-2">
@@ -697,12 +716,25 @@ function MenuItemManager() {
                 {m.category} · ₹{Number(m.price).toFixed(2)}
               </p>
             </div>
-            <button
-              onClick={() => removeItem(m)}
-              className="rounded-md p-2 text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => toggleAllowHalf(m)}
+                className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                  m.allow_half
+                    ? "bg-success/20 text-success"
+                    : "bg-muted text-muted-foreground"
+                }`}
+                title={m.allow_half ? "Half plate enabled" : "Half plate disabled"}
+              >
+                ½
+              </button>
+              <button
+                onClick={() => removeItem(m)}
+                className="rounded-md p-2 text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           </li>
         ))}
       </ul>

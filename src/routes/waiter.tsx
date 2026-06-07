@@ -15,7 +15,7 @@ import {
   type OrderItem,
   type TableRow,
 } from "@/lib/restaurant";
-import { Minus, Plus, Receipt, Send, Utensils, X, Search } from "lucide-react";
+import { Minus, Plus, Receipt, Send, Utensils, X, Search, Eye } from "lucide-react";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/waiter")({
@@ -84,45 +84,61 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
   const { data: orderItems } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
 
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [halfCart, setHalfCart] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
   const [activeCat, setActiveCat] = useState<string>("__all__");
+  const [showOrderSummary, setShowOrderSummary] = useState(false);
 
   const tableOrders = orders.filter((o) => o.table_id === table.id && o.status !== "billed");
   const tableOrderItems = orderItems.filter((oi) => tableOrders.some((o) => o.id === oi.order_id));
 
   const billRows = useMemo(() => {
-    const rows: { key: string; item: MenuItem; qty: number; itemStatus: OrderItem["status"] }[] = [];
+    const rows: { key: string; item: MenuItem; qty: number; halfQty: number; itemStatus: OrderItem["status"] }[] = [];
     tableOrderItems.forEach((oi) => {
       const item = menu.find((m) => m.id === oi.menu_item_id);
       if (!item) return;
-      rows.push({ key: oi.id, item, qty: oi.quantity, itemStatus: oi.status });
+      rows.push({ key: oi.id, item, qty: oi.quantity, halfQty: oi.half_quantity || 0, itemStatus: oi.status });
     });
     return rows;
   }, [tableOrderItems, menu]);
 
   const billTotal = billRows.reduce((sum, r) => sum + r.qty * Number(r.item.price), 0);
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
+  const halfCartCount = Object.values(halfCart).reduce((a, b) => a + b, 0);
   const cartTotal = Object.entries(cart).reduce((sum, [id, qty]) => {
     const m = menu.find((x) => x.id === id);
     return sum + (m ? Number(m.price) * qty : 0);
+  }, 0);
+  const halfCartTotal = Object.entries(halfCart).reduce((sum, [id, qty]) => {
+    const m = menu.find((x) => x.id === id);
+    return sum + (m ? (Number(m.price) / 2) * qty : 0);
   }, 0);
 
   function setQty(id: string, qty: number) {
     setCart((c) => {
       const n = { ...c };
-      const rounded = Math.round(qty * 2) / 2; // snap to halves
-      if (rounded <= 0) delete n[id];
-      else n[id] = rounded;
+      if (qty <= 0) delete n[id];
+      else n[id] = qty;
       return n;
     });
   }
+
+  function setHalfQty(id: string, qty: number) {
+    setHalfCart((c) => {
+      const n = { ...c };
+      if (qty <= 0) delete n[id];
+      else n[id] = qty;
+      return n;
+    });
+  }
+
   function formatQty(q: number) {
     return Number.isInteger(q) ? String(q) : q.toString();
   }
 
   async function placeOrder() {
-    if (cartCount === 0) return;
+    if (cartCount === 0 && halfCartCount === 0) return;
     setBusy(true);
     const { data: order, error } = await supabase
       .from("orders")
@@ -134,11 +150,25 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
       setBusy(false);
       return;
     }
-    const items = Object.entries(cart).map(([menu_item_id, quantity]) => ({
-      order_id: order.id,
-      menu_item_id,
-      quantity,
-    }));
+    
+    // Combine full and half items
+    const items: { order_id: string; menu_item_id: string; quantity: number; half_quantity: number }[] = [];
+    
+    // Add full items
+    Object.entries(cart).forEach(([menu_item_id, quantity]) => {
+      items.push({ order_id: order.id, menu_item_id, quantity, half_quantity: 0 });
+    });
+    
+    // Add half items (store half count separately)
+    Object.entries(halfCart).forEach(([menu_item_id, halfCount]) => {
+      items.push({ 
+        order_id: order.id, 
+        menu_item_id, 
+        quantity: halfCount * 0.5, // Store as 0.5 for pricing
+        half_quantity: halfCount // Store actual half count for display
+      });
+    });
+    
     const { error: e2 } = await supabase.from("order_items").insert(items);
     if (e2) {
       toast.error("Failed to add items");
@@ -149,6 +179,7 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
       await supabase.from("tables").update({ status: "occupied" }).eq("id", table.id);
     }
     setCart({});
+    setHalfCart({});
     setBusy(false);
     toast.success(`Order sent to counter — Table ${table.table_number}`);
   }
@@ -196,13 +227,17 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
                 Current bill
               </h3>
               <ul className="space-y-2 text-sm">
-                {billRows.map((r) => (
-                  <li key={r.key} className="flex items-center justify-between gap-2">
-                    <span className="flex-1">{formatQty(Number(r.qty))} × {r.item.name}</span>
-                    <ItemStatusBadge itemStatus={r.itemStatus} unavailable={!r.item.is_available} />
-                    <span className="w-16 text-right font-medium">₹{(Number(r.qty) * Number(r.item.price)).toFixed(2)}</span>
-                  </li>
-                ))}
+                {billRows.map((r) => {
+                  const isHalf = r.halfQty > 0;
+                  const displayQty = isHalf ? `${r.halfQty} half` : formatQty(Number(r.qty));
+                  return (
+                    <li key={r.key} className="flex items-center justify-between gap-2">
+                      <span className="flex-1">{displayQty} × {r.item.name}</span>
+                      <ItemStatusBadge itemStatus={r.itemStatus} unavailable={!r.item.is_available} />
+                      <span className="w-16 text-right font-medium">₹{(Number(r.qty) * Number(r.item.price)).toFixed(2)}</span>
+                    </li>
+                  );
+                })}
               </ul>
               <div className="mt-3 flex justify-between border-t pt-3 text-base font-bold">
                 <span>Total</span>
@@ -251,6 +286,7 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
                 <div className="space-y-2">
                   {items.map((m) => {
                     const qty = cart[m.id] ?? 0;
+                    const halfQty = halfCart[m.id] ?? 0;
                     const disabled = !m.is_available;
                     return (
                       <div
@@ -265,33 +301,49 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
                             ₹{Number(m.price).toFixed(2)} {disabled && "· Unavailable"}
                           </p>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            disabled={disabled || qty === 0}
-                            onClick={() => setQty(m.id, qty - 0.5)}
-                            className="rounded-md border p-2 disabled:opacity-30"
-                            title="Remove half"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </button>
-                          <span className="w-10 text-center font-semibold tabular-nums">{formatQty(qty)}</span>
-                          <button
-                            disabled={disabled}
-                            onClick={() => setQty(m.id, qty + 0.5)}
-                            className="rounded-md border px-2 py-2 text-xs font-bold disabled:opacity-30"
-                            title="Add half plate"
-                          >
-                            ½
-                          </button>
-                          <button
-                            disabled={disabled}
-                            onClick={() => setQty(m.id, qty + 1)}
-                            className="rounded-md border p-2 disabled:opacity-30"
-                            style={{ background: "var(--waiter)", color: "var(--waiter-foreground)", borderColor: "transparent" }}
-                            title="Add full plate"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <button
+                              disabled={disabled || qty === 0}
+                              onClick={() => setQty(m.id, qty - 1)}
+                              className="rounded-md border p-2 disabled:opacity-30"
+                              title="Remove one"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <span className="w-10 text-center font-semibold tabular-nums">{formatQty(qty)}</span>
+                            <button
+                              disabled={disabled}
+                              onClick={() => setQty(m.id, qty + 1)}
+                              className="rounded-md border p-2 disabled:opacity-30"
+                              style={{ background: "var(--waiter)", color: "var(--waiter-foreground)", borderColor: "transparent" }}
+                              title="Add one"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                          {m.allow_half && (
+                            <div className="flex items-center gap-1 border-l pl-2">
+                              <button
+                                disabled={disabled || halfQty === 0}
+                                onClick={() => setHalfQty(m.id, halfQty - 1)}
+                                className="rounded-md border p-2 disabled:opacity-30"
+                                title="Remove half"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </button>
+                              <span className="w-8 text-center font-semibold tabular-nums text-xs">½×{formatQty(halfQty)}</span>
+                              <button
+                                disabled={disabled}
+                                onClick={() => setHalfQty(m.id, halfQty + 1)}
+                                className="rounded-md border p-2 disabled:opacity-30"
+                                style={{ background: "var(--warning)", color: "var(--warning-foreground)", borderColor: "transparent" }}
+                                title="Add half"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -308,21 +360,23 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
         </div>
 
         <div className="border-t bg-card p-4">
-          {cartCount > 0 && (
+          {(cartCount > 0 || halfCartCount > 0) && (
             <div className="mb-3 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{formatQty(cartCount)} new item(s)</span>
-              <span className="font-semibold">₹{cartTotal.toFixed(2)}</span>
+              <span className="text-muted-foreground">
+                {formatQty(cartCount)} full + {formatQty(halfCartCount)} half
+              </span>
+              <span className="font-semibold">₹{(cartTotal + halfCartTotal).toFixed(2)}</span>
             </div>
           )}
           <div className="flex gap-2">
             <button
-              disabled={busy || cartCount === 0}
-              onClick={placeOrder}
+              disabled={busy || cartCount === 0 && halfCartCount === 0}
+              onClick={() => setShowOrderSummary(true)}
               className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 font-semibold disabled:opacity-40"
               style={{ background: "var(--waiter)", color: "var(--waiter-foreground)" }}
             >
-              <Send className="h-4 w-4" />
-              {tableOrders.length > 0 ? "Add More Items" : "Place Order"}
+              <Eye className="h-4 w-4" />
+              {tableOrders.length > 0 ? "View Order" : "View Order"}
             </button>
             <button
               disabled={busy || tableOrders.length === 0}
@@ -335,6 +389,66 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
           </div>
         </div>
       </aside>
+
+      {/* Order Summary Modal */}
+      {showOrderSummary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold">Order Summary</h2>
+              <button
+                onClick={() => setShowOrderSummary(false)}
+                className="rounded-md p-2 hover:bg-muted"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mb-4 space-y-2 max-h-64 overflow-y-auto">
+              {Object.entries(cart).map(([id, qty]) => {
+                const m = menu.find((x) => x.id === id);
+                if (!m || qty === 0) return null;
+                return (
+                  <div key={id} className="flex justify-between text-sm">
+                    <span>{formatQty(qty)} × {m.name}</span>
+                    <span>₹{(Number(m.price) * qty).toFixed(2)}</span>
+                  </div>
+                );
+              })}
+              {Object.entries(halfCart).map(([id, qty]) => {
+                const m = menu.find((x) => x.id === id);
+                if (!m || qty === 0) return null;
+                return (
+                  <div key={id} className="flex justify-between text-sm">
+                    <span>{formatQty(qty)} half × {m.name}</span>
+                    <span>{formatQty(qty)} half</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mb-4 border-t pt-4">
+              <div className="flex justify-between font-bold">
+                <span>Total</span>
+                <span>₹{(cartTotal + halfCartTotal).toFixed(2)}</span>
+              </div>
+            </div>
+
+            <button
+              disabled={busy}
+              onClick={() => {
+                setShowOrderSummary(false);
+                placeOrder();
+              }}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 font-semibold disabled:opacity-40"
+              style={{ background: "var(--waiter)", color: "var(--waiter-foreground)" }}
+            >
+              <Send className="h-4 w-4" />
+              Confirm & Place Order
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

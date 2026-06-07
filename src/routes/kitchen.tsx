@@ -165,10 +165,12 @@ function KitchenPage() {
                             : it.status === "preparing"
                               ? "var(--warning)"
                               : "var(--kitchen)";
+                        const isHalf = it.half_quantity > 0;
+                        const displayQty = isHalf ? `${it.half_quantity} half` : Number(it.quantity);
                         return (
                           <li key={it.id} className="flex items-center gap-3">
                             <span className="text-2xl font-bold tabular-nums" style={{ color: itemAccent }}>
-                              {Number(it.quantity)}×
+                              {displayQty}×
                             </span>
                             <div className="flex-1 min-w-0">
                               <p className="text-base truncate">{m?.name ?? "?"}</p>

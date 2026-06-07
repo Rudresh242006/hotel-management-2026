@@ -1,0 +1,14 @@
+{
+  "appId": "com.hotelmanager.app",
+  "appName": "Hotel Manager",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}

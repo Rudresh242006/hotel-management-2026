@@ -21,6 +21,7 @@ export type Database = {
           is_available: boolean
           name: string
           price: number
+          allow_half: boolean
         }
         Insert: {
           category: string
@@ -28,6 +29,7 @@ export type Database = {
           is_available?: boolean
           name: string
           price: number
+          allow_half?: boolean
         }
         Update: {
           category?: string
@@ -35,6 +37,7 @@ export type Database = {
           is_available?: boolean
           name?: string
           price?: number
+          allow_half?: boolean
         }
         Relationships: []
       }
@@ -46,6 +49,7 @@ export type Database = {
           order_id: string
           quantity: number
           status: string
+          half_quantity: number
         }
         Insert: {
           created_at?: string
@@ -54,6 +58,7 @@ export type Database = {
           order_id: string
           quantity?: number
           status?: string
+          half_quantity?: number
         }
         Update: {
           created_at?: string
@@ -62,6 +67,7 @@ export type Database = {
           order_id?: string
           quantity?: number
           status?: string
+          half_quantity?: number
         }
         Relationships: [
           {
