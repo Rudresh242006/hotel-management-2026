@@ -60,21 +60,37 @@ npm run dev
 
 ## Deployment
 
-### Vercel Deployment
+### Cloudflare Workers Deployment (Recommended)
 
-1. Push your code to GitHub
-2. Import project in Vercel
-3. Add environment variables:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_PUBLISHABLE_KEY`
-4. Deploy
+This project uses TanStack Start and is configured for Cloudflare Workers deployment.
 
-### Cloudflare Workers Deployment
-
+**First-time setup:**
 ```bash
+# Install Wrangler CLI globally
+npm install -g wrangler
+
+# Login to Cloudflare
+wrangler login
+```
+
+**Deploy to Cloudflare:**
+```bash
+# Build and deploy in one command
+npm run deploy
+
+# Or separately:
 npm run build
 npx wrangler deploy
 ```
+
+**Environment variables:**
+Add your Supabase credentials to Cloudflare:
+```bash
+wrangler secret put VITE_SUPABASE_URL
+wrangler secret put VITE_SUPABASE_PUBLISHABLE_KEY
+```
+
+Your app will be deployed at: `https://hotel-manager.YOUR_SUBDOMAIN.workers.dev`
 
 ## Database Setup
 
