@@ -1,7 +1,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type TableRow = { id: string; table_number: number; status: "free" | "occupied" };
+export type Floor = { id: string; name: string; code: string; created_at: string };
+export type TableRow = {
+  id: string;
+  table_number: number;
+  status: "free" | "occupied";
+  floor_id: string | null;
+  is_ac: boolean;
+};
 export type MenuItem = {
   id: string;
   name: string;
@@ -29,6 +36,17 @@ export type OrderItem = {
 };
 
 export const CATEGORIES = ["Starters", "Main Course", "Beverages", "Desserts"] as const;
+
+/**
+ * Returns a formatted table label like "1F/AC/5" or "GF/Non-AC/3".
+ * Falls back to "Table X" if floor data is unavailable.
+ */
+export function getTableLabel(table: TableRow, floors: Floor[]): string {
+  const floor = floors.find((f) => f.id === table.floor_id);
+  const floorCode = floor?.code ?? "??";
+  const acLabel = table.is_ac ? "AC" : "Non-AC";
+  return `${floorCode}/${acLabel}/${table.table_number}`;
+}
 
 export function useRealtimeQuery<T>(
   fetcher: () => Promise<T[]>,
@@ -59,6 +77,10 @@ export function useRealtimeQuery<T>(
   return { data, loading, refresh };
 }
 
+export async function fetchFloors(): Promise<Floor[]> {
+  const { data } = await supabase.from("floors").select("*").order("created_at");
+  return (data ?? []) as Floor[];
+}
 export async function fetchTables(): Promise<TableRow[]> {
   const { data } = await supabase.from("tables").select("*").order("table_number");
   return (data ?? []) as TableRow[];

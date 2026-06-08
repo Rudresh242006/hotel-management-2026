@@ -2,20 +2,23 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { RoleHeader } from "@/components/RoleHeader";
+import { RoleHeader, ThemeToggle } from "@/components/RoleHeader";
 import {
   CATEGORIES,
+  fetchFloors,
   fetchMenu,
   fetchOrderItems,
   fetchOrders,
   fetchTables,
+  getTableLabel,
   useRealtimeQuery,
+  type Floor,
   type MenuItem,
   type Order,
   type OrderItem,
   type TableRow,
 } from "@/lib/restaurant";
-import { Minus, Plus, Receipt, Send, Utensils, X, Search, Eye } from "lucide-react";
+import { Minus, Plus, Receipt, Send, Utensils, X, Search, Eye, Building2, Thermometer } from "lucide-react";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/waiter")({
@@ -24,98 +27,236 @@ export const Route = createFileRoute("/waiter")({
 });
 
 function WaiterPage() {
-  const { data: tables, loading } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
+  const { data: floors, loading: lf } = useRealtimeQuery<Floor>(fetchFloors, ["floors"]);
+  const { data: tables, loading: lt } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
+
+  // Floor & AC filter state — null means "All"
+  const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
+  const [acFilter, setAcFilter] = useState<boolean | null>(null);
+
+  const loading = lf || lt;
 
   const activeTable = tables.find((t) => t.id === activeTableId) ?? null;
 
+  // Filtered tables based on selected floor + AC setting
+  const visibleTables = tables.filter((t) => {
+    if (selectedFloorId !== null && t.floor_id !== selectedFloorId) return false;
+    if (acFilter !== null && t.is_ac !== acFilter) return false;
+    return true;
+  });
+
   return (
     <div className="min-h-screen bg-background">
-      <RoleHeader role="waiter" title="Floor Manager" subtitle="Manage tables & order entries" />
+      <RoleHeader
+        role="waiter"
+        title="Floor Manager"
+        subtitle="Manage tables & order entries"
+        right={<ThemeToggle />}
+      />
       <main className="mx-auto max-w-7xl px-6 py-8 animate-fade-up">
         {loading && <LoadingScreen role="waiter" label="Initializing table map…" />}
 
         {!loading && (
-          <div>
-            <div className="mb-6 flex items-center justify-between">
+          <div className="space-y-6">
+            {/* Floor Selector Tabs */}
+            {floors.length > 0 && (
+              <div className="flex flex-wrap gap-2 items-center">
+                <Building2 className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                {/* "All Floors" pill */}
+                <button
+                  onClick={() => setSelectedFloorId(null)}
+                  className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 focus:outline-none ${
+                    selectedFloorId === null
+                      ? "bg-waiter border-transparent text-waiter-foreground shadow-sm"
+                      : "bg-secondary/40 border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+                >
+                  All Floors
+                </button>
+                {floors.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setSelectedFloorId(f.id)}
+                    className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 focus:outline-none ${
+                      selectedFloorId === f.id
+                        ? "bg-waiter border-transparent text-waiter-foreground shadow-sm"
+                        : "bg-secondary/40 border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    }`}
+                  >
+                    {f.name}
+                    <span className="ml-1.5 opacity-70">({f.code})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* AC / Non-AC Filter */}
+            <div className="flex items-center gap-2">
+              <Thermometer className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+              {[
+                { label: "All Sections", value: null },
+                { label: "AC", value: true },
+                { label: "Non-AC", value: false },
+              ].map(({ label, value }) => (
+                <button
+                  key={label}
+                  onClick={() => setAcFilter(value)}
+                  className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 focus:outline-none ${
+                    acFilter === value
+                      ? "bg-waiter border-transparent text-waiter-foreground shadow-sm"
+                      : "bg-secondary/40 border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Stats Row */}
+            <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Seating Floor Map ({tables.length} Tables)
+                Seating Map ({visibleTables.length} Table{visibleTables.length !== 1 ? "s" : ""})
               </h2>
               <div className="flex gap-4 text-xs font-semibold">
                 <span className="flex items-center gap-1.5 text-success">
                   <span className="pulse-dot h-2 w-2 rounded-full bg-current" />
-                  Free ({tables.filter((t) => t.status === "free").length})
+                  Free ({visibleTables.filter((t) => t.status === "free").length})
                 </span>
                 <span className="flex items-center gap-1.5 text-destructive">
                   <span className="pulse-dot h-2 w-2 rounded-full bg-current" />
-                  Occupied ({tables.filter((t) => t.status !== "free").length})
+                  Occupied ({visibleTables.filter((t) => t.status !== "free").length})
                 </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {tables.map((t) => {
-                const free = t.status === "free";
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setActiveTableId(t.id)}
-                    className="group relative aspect-[1.1] overflow-hidden rounded-2xl border bg-card p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg focus:outline-none"
-                    style={{
-                      borderColor: free
-                        ? "rgba(var(--success-color), 0.2)"
-                        : "rgba(var(--destructive-color), 0.2)",
-                      boxShadow: free
-                        ? "0 4px 24px rgba(0,0,0,0.15), inset 0 0 12px oklch(0.72 0.16 142 / 4%)"
-                        : "0 4px 24px rgba(0,0,0,0.15), inset 0 0 12px oklch(0.55 0.22 25 / 4%)",
-                    }}
-                  >
-                    {/* Pulsing indicator border */}
-                    <div
-                      className="absolute inset-x-0 bottom-0 h-1"
-                      style={{ background: free ? "var(--success)" : "var(--destructive)" }}
-                    />
+            {/* Table Grid */}
+            {visibleTables.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border/40 p-16 text-center text-muted-foreground">
+                No tables for the selected filter. Add tables in the Counter Admin panel.
+              </div>
+            ) : (
+              /* Group by floor → AC section */
+              (() => {
+                // Determine which floors to show based on filtered tables
+                const floorIdsInView = Array.from(new Set(visibleTables.map((t) => t.floor_id)));
+                const floorsInView = floors.filter((f) => floorIdsInView.includes(f.id));
 
-                    <div className="flex h-full flex-col justify-between">
-                      <div className="flex items-center justify-between">
-                        <Utensils className="h-4 w-4 text-muted-foreground/60" />
-                        <span
-                          className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border"
-                          style={{
-                            background: free
-                              ? "oklch(0.72 0.16 142 / 10%)"
-                              : "oklch(0.55 0.22 25 / 10%)",
-                            borderColor: free ? "var(--success)" : "var(--destructive)",
-                            color: free ? "var(--success)" : "var(--destructive)",
-                          }}
-                        >
-                          {free ? "Free" : "Busy"}
+                return floorsInView.map((floor) => {
+                  const floorTables = visibleTables.filter((t) => t.floor_id === floor.id);
+                  const acTables = floorTables.filter((t) => t.is_ac);
+                  const nonAcTables = floorTables.filter((t) => !t.is_ac);
+
+                  return (
+                    <div key={floor.id} className="space-y-4">
+                      {/* Floor heading */}
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-waiter/70" />
+                        <span className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground/80">
+                          {floor.name}
+                        </span>
+                        <span className="rounded-md bg-waiter/15 px-2 py-0.5 text-[10px] font-extrabold text-waiter">
+                          {floor.code}
                         </span>
                       </div>
 
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                          Table
-                        </p>
-                        <p className="text-4xl font-black text-foreground group-hover:text-white transition-colors">
-                          {String(t.table_number).padStart(2, "0")}
-                        </p>
-                      </div>
+                      {/* AC & Non-AC sub-sections */}
+                      {[
+                        { label: "AC", items: acTables, isAC: true },
+                        { label: "Non-AC", items: nonAcTables, isAC: false },
+                      ].map(({ label, items }) => {
+                        if (!items.length) return null;
+                        return (
+                          <div key={label} className="space-y-2">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 pl-1">
+                              {label} Section
+                            </p>
+                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                              {items.map((t) => {
+                                const free = t.status === "free";
+                                return (
+                                  <button
+                                    key={t.id}
+                                    onClick={() => setActiveTableId(t.id)}
+                                    className="group relative aspect-[1.1] overflow-hidden rounded-2xl border bg-card p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg focus:outline-none"
+                                    style={{
+                                      borderColor: free
+                                        ? "rgba(var(--success-color), 0.2)"
+                                        : "rgba(var(--destructive-color), 0.2)",
+                                      boxShadow: free
+                                        ? "0 4px 24px rgba(0,0,0,0.15), inset 0 0 12px oklch(0.72 0.16 142 / 4%)"
+                                        : "0 4px 24px rgba(0,0,0,0.15), inset 0 0 12px oklch(0.55 0.22 25 / 4%)",
+                                    }}
+                                  >
+                                    {/* Status bar */}
+                                    <div
+                                      className="absolute inset-x-0 bottom-0 h-1"
+                                      style={{ background: free ? "var(--success)" : "var(--destructive)" }}
+                                    />
+
+                                    <div className="flex h-full flex-col justify-between">
+                                      <div className="flex items-center justify-between">
+                                        <Utensils className="h-4 w-4 text-muted-foreground/60" />
+                                        <span
+                                          className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border"
+                                          style={{
+                                            background: free
+                                              ? "oklch(0.72 0.16 142 / 10%)"
+                                              : "oklch(0.55 0.22 25 / 10%)",
+                                            borderColor: free ? "var(--success)" : "var(--destructive)",
+                                            color: free ? "var(--success)" : "var(--destructive)",
+                                          }}
+                                        >
+                                          {free ? "Free" : "Busy"}
+                                        </span>
+                                      </div>
+
+                                      <div>
+                                        {/* Floor/AC label */}
+                                        <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                                          {floor.code}/{label}
+                                        </p>
+                                        <p className="text-3xl font-black text-foreground group-hover:text-white transition-colors">
+                                          {String(t.table_number).padStart(2, "0")}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </button>
-                );
-              })}
-            </div>
+                  );
+                });
+              })()
+            )}
           </div>
         )}
       </main>
 
-      {activeTable && <TableSheet table={activeTable} onClose={() => setActiveTableId(null)} />}
+      {activeTable && (
+        <TableSheet
+          table={activeTable}
+          floors={floors}
+          onClose={() => setActiveTableId(null)}
+        />
+      )}
     </div>
   );
 }
 
-function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }) {
+function TableSheet({
+  table,
+  floors,
+  onClose,
+}: {
+  table: TableRow;
+  floors: Floor[];
+  onClose: () => void;
+}) {
   const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
   const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
   const { data: orderItems } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
@@ -126,6 +267,8 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
   const [search, setSearch] = useState("");
   const [activeCat, setActiveCat] = useState<string>("__all__");
   const [showOrderSummary, setShowOrderSummary] = useState(false);
+
+  const tableLabel = getTableLabel(table, floors);
 
   const tableOrders = orders.filter((o) => o.table_id === table.id && o.status !== "billed");
   const tableOrderItems = orderItems.filter((oi) => tableOrders.some((o) => o.id === oi.order_id));
@@ -232,7 +375,7 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
     setCart({});
     setHalfCart({});
     setBusy(false);
-    toast.success(`Order sent to kitchen · Table ${table.table_number}`);
+    toast.success(`Order sent to kitchen · ${tableLabel}`);
   }
 
   async function generateBill() {
@@ -247,7 +390,7 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
       );
     await supabase.from("tables").update({ status: "free" }).eq("id", table.id);
     setBusy(false);
-    toast.success(`Bill generated · ₹${billTotal.toFixed(2)}`);
+    toast.success(`Bill generated · ${tableLabel} · ₹${billTotal.toFixed(2)}`);
     onClose();
   }
 
@@ -262,19 +405,20 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Dimmed backdrop overlay */}
+      {/* Dimmed backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
-      {/* Slide sheet sidebar */}
+      {/* Slide sheet */}
       <aside className="relative flex h-full w-full max-w-lg flex-col border-l border-border/40 bg-card/95 shadow-2xl backdrop-blur-xl animate-fade-up">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/40 px-6 py-4">
           <div>
+            {/* Full table label badge */}
             <span className="inline-flex items-center gap-1.5 rounded-full border border-waiter/30 bg-waiter/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-waiter">
-              Table {String(table.table_number).padStart(2, "0")}
+              {tableLabel}
             </span>
             <h2 className="mt-1 text-lg font-bold text-foreground">
               {tableOrders.length > 0 ? "Edit Seating Ticket" : "Create Order Ticket"}
@@ -337,13 +481,10 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
             />
           </div>
 
-          {/* Category Quick Selector Scroll */}
+          {/* Category Quick Selector */}
           <div className="-mx-6 overflow-x-auto px-6">
             <div className="flex gap-2 pb-2">
-              <CategoryChip
-                active={activeCat === "__all__"}
-                onClick={() => setActiveCat("__all__")}
-              >
+              <CategoryChip active={activeCat === "__all__"} onClick={() => setActiveCat("__all__")}>
                 Full Menu
               </CategoryChip>
               {allCategories.map((cat) => (
@@ -497,7 +638,13 @@ function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }
           />
           <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-border/40 bg-card p-6 shadow-2xl animate-fade-up">
             <div className="mb-4 flex items-center justify-between border-b border-border/20 pb-3">
-              <h3 className="text-lg font-bold text-foreground">Confirm Seating Order</h3>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Confirm Order</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Dispatching to kitchen for{" "}
+                  <span className="font-bold text-waiter">{tableLabel}</span>
+                </p>
+              </div>
               <button
                 onClick={() => setShowOrderSummary(false)}
                 className="rounded-lg p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"

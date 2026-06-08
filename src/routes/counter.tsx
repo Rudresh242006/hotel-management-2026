@@ -2,14 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { RoleHeader } from "@/components/RoleHeader";
+import { RoleHeader, ThemeToggle } from "@/components/RoleHeader";
 import {
   CATEGORIES,
+  fetchFloors,
   fetchMenu,
   fetchOrderItems,
   fetchOrders,
   fetchTables,
+  getTableLabel,
   useRealtimeQuery,
+  type Floor,
   type MenuItem,
   type Order,
   type OrderItem,
@@ -29,6 +32,12 @@ import {
   History,
   BookOpen,
   Ban,
+  Building2,
+  Pencil,
+  Check,
+  X as XIcon,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import {
   Dialog,
@@ -58,21 +67,24 @@ function CounterPage() {
         title="Reception & Billing"
         subtitle="Manage live orders and store configurations"
         right={
-          <div className="flex gap-1 rounded-xl bg-secondary/80 border border-border/40 p-1">
-            <TabBtn
-              active={tab === "orders"}
-              onClick={() => setTab("orders")}
-              icon={<ClipboardList className="h-4 w-4" />}
-            >
-              Orders Console
-            </TabBtn>
-            <TabBtn
-              active={tab === "admin"}
-              onClick={() => setTab("admin")}
-              icon={<Settings className="h-4 w-4" />}
-            >
-              Store Admin
-            </TabBtn>
+          <div className="flex items-center gap-3">
+            <div className="flex gap-1 rounded-xl bg-secondary/80 border border-border/40 p-1">
+              <TabBtn
+                active={tab === "orders"}
+                onClick={() => setTab("orders")}
+                icon={<ClipboardList className="h-4 w-4" />}
+              >
+                Orders Console
+              </TabBtn>
+              <TabBtn
+                active={tab === "admin"}
+                onClick={() => setTab("admin")}
+                icon={<Settings className="h-4 w-4" />}
+              >
+                Store Admin
+              </TabBtn>
+            </div>
+            <ThemeToggle />
           </div>
         }
       />
@@ -110,6 +122,7 @@ function TabBtn({
 /* ============ ORDERS VIEW ============ */
 
 function OrdersView() {
+  const { data: floors } = useRealtimeQuery<Floor>(fetchFloors, ["floors"]);
   const { data: tables, loading: lt } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
   const { data: menu, loading: lm } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
   const { data: orders, loading: lo } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
@@ -124,10 +137,11 @@ function OrdersView() {
       if (o.status === "ready" && !seenReady.current.has(o.id)) {
         seenReady.current.add(o.id);
         const t = tables.find((x) => x.id === o.table_id);
-        toast.success(`Order for Table ${t?.table_number ?? "?"} is ready to serve!`);
+        const label = t ? getTableLabel(t, floors) : "?";
+        toast.success(`Order for ${label} is ready to serve!`);
       }
     });
-  }, [orders, tables]);
+  }, [orders, tables, floors]);
 
   const [search, setSearch] = useState("");
   const active = orders.filter((o) => o.status !== "billed");
@@ -135,6 +149,8 @@ function OrdersView() {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     const table = tables.find((t) => t.id === o.table_id);
+    const tableLabel = table ? getTableLabel(table, floors).toLowerCase() : "";
+    if (tableLabel.includes(q)) return true;
     if (table?.table_number.toString().includes(q)) return true;
     const items = orderItems.filter((oi) => oi.order_id === o.id);
     return items.some((it) => {
@@ -180,8 +196,8 @@ function OrdersView() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search table or item..."
-                className="h-9 w-48 rounded-xl border border-border/60 bg-card pl-9 pr-3 text-xs text-foreground placeholder-muted-foreground/60 focus:border-counter focus:ring-1 focus:ring-counter outline-none transition"
+                placeholder="Search table, floor or item..."
+                className="h-9 w-52 rounded-xl border border-border/60 bg-card pl-9 pr-3 text-xs text-foreground placeholder-muted-foreground/60 focus:border-counter focus:ring-1 focus:ring-counter outline-none transition"
               />
             </div>
           </div>
@@ -197,6 +213,7 @@ function OrdersView() {
           )}
           {filteredOrders.map((o) => {
             const table = tables.find((t) => t.id === o.table_id);
+            const tableLabel = table ? getTableLabel(table, floors) : "??";
             const items = orderItems.filter((oi) => oi.order_id === o.id);
             return (
               <article
@@ -206,16 +223,16 @@ function OrdersView() {
                 <header className="mb-4 flex items-center justify-between border-b border-border/20 pb-3">
                   <div className="flex items-center gap-3">
                     <div
-                      className="flex h-11 w-11 items-center justify-center rounded-xl font-black text-lg shadow-sm"
+                      className="flex h-11 min-w-[3rem] items-center justify-center rounded-xl font-black text-sm shadow-sm px-2"
                       style={{
                         background: "rgba(var(--counter-color), 0.12)",
                         color: "var(--counter)",
                       }}
                     >
-                      {table?.table_number}
+                      {tableLabel}
                     </div>
                     <div>
-                      <h3 className="font-bold text-foreground">Table {table?.table_number}</h3>
+                      <h3 className="font-bold text-foreground">{tableLabel}</h3>
                       <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase">
                         Ordered at{" "}
                         {new Date(o.created_at).toLocaleTimeString([], {
@@ -418,6 +435,12 @@ function MenuAvailabilityList({ menu }: { menu: MenuItem[] }) {
 function AdminPanel() {
   const sections = [
     {
+      key: "floors",
+      title: "Floors",
+      icon: <Building2 className="h-4 w-4" />,
+      render: () => <FloorManager />,
+    },
+    {
       key: "prices",
       title: "Price Editor",
       icon: <IndianRupee className="h-4 w-4" />,
@@ -425,7 +448,7 @@ function AdminPanel() {
     },
     {
       key: "tables",
-      title: "Table layout",
+      title: "Table Layout",
       icon: <TableIcon className="h-4 w-4" />,
       render: () => <TableManager />,
     },
@@ -443,12 +466,12 @@ function AdminPanel() {
     },
   ] as const;
 
-  const [active, setActive] = useState<(typeof sections)[number]["key"]>("prices");
+  const [active, setActive] = useState<(typeof sections)[number]["key"]>("floors");
   const current = sections.find((s) => s.key === active)!;
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-8 space-y-6">
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
         {sections.map((s) => {
           const isActive = s.key === active;
           return (
@@ -479,146 +502,104 @@ function AdminPanel() {
   );
 }
 
-function PriceEditor() {
-  const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
-  const [edits, setEdits] = useState<Record<string, string>>({});
-  const [search, setSearch] = useState("");
+/* ============ FLOOR MANAGER ============ */
 
-  async function savePrice(item: MenuItem) {
-    const raw = edits[item.id];
-    if (raw === undefined) return;
-    const price = Number(raw);
-    if (isNaN(price) || price < 0) {
-      toast.error("Invalid price entered");
-      return;
-    }
-    await supabase.from("menu_items").update({ price }).eq("id", item.id);
-    setEdits((e) => {
-      const n = { ...e };
-      delete n[item.id];
-      return n;
-    });
-    toast.success(`Updated price for ${item.name}`);
-  }
-
-  const allCategories = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)]));
-  const q = search.trim().toLowerCase();
-
-  return (
-    <div className="space-y-4">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Filter price sheet..."
-          className="h-9 w-full rounded-xl border border-border/60 bg-background pl-9 pr-3 text-xs text-foreground placeholder-muted-foreground/60 focus:border-counter focus:ring-1 focus:ring-counter outline-none transition"
-        />
-      </div>
-      <div className="max-h-[50vh] overflow-y-auto space-y-5 pr-1">
-        {allCategories.map((cat) => {
-          const items = menu.filter(
-            (m) => m.category === cat && (!q || m.name.toLowerCase().includes(q)),
-          );
-          if (!items.length) return null;
-          return (
-            <div key={cat} className="space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                {cat}
-              </p>
-              <ul className="space-y-1.5">
-                {items.map((m) => {
-                  const dirty = edits[m.id] !== undefined;
-                  return (
-                    <li
-                      key={m.id}
-                      className="flex items-center gap-3 rounded-xl bg-secondary/15 border border-border/20 p-3"
-                    >
-                      <span className="flex-1 truncate text-xs font-semibold text-foreground">
-                        {m.name}
-                      </span>
-                      <span className="text-xs font-bold text-muted-foreground">₹</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={dirty ? edits[m.id] : Number(m.price).toFixed(2)}
-                        onChange={(e) => setEdits((s) => ({ ...s, [m.id]: e.target.value }))}
-                        className="w-20 rounded-lg border border-border/60 bg-background px-2.5 py-1 text-xs font-bold text-foreground text-center focus:border-counter outline-none"
-                      />
-                      <button
-                        disabled={!dirty}
-                        onClick={() => savePrice(m)}
-                        className="btn-base font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-95 py-1 px-3 text-[10px] rounded-lg"
-                      >
-                        Save
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function TableManager() {
+function FloorManager() {
+  const { data: floors } = useRealtimeQuery<Floor>(fetchFloors, ["floors"]);
   const { data: tables } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
-  const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
+  const [floorName, setFloorName] = useState("");
+  const [floorCode, setFloorCode] = useState("");
 
-  async function addTable() {
-    const next = (tables.reduce((m, t) => Math.max(m, t.table_number), 0) || 0) + 1;
-    const { error } = await supabase.from("tables").insert({ table_number: next, status: "free" });
-    if (error) toast.error(error.message);
-    else toast.success(`Added Table ${next} to floor layout`);
-  }
-
-  async function removeTable(t: TableRow) {
-    const hasActive = orders.some((o) => o.table_id === t.id && o.status !== "billed");
-    if (hasActive) {
-      toast.error(`Table ${t.table_number} has an active active ticket`);
+  async function addFloor() {
+    const name = floorName.trim();
+    const code = floorCode.trim().toUpperCase();
+    if (!name || !code) {
+      toast.error("Enter both floor name and code");
       return;
     }
-    const { error } = await supabase.from("tables").delete().eq("id", t.id);
+    const { error } = await supabase.from("floors").insert({ name, code });
     if (error) toast.error(error.message);
-    else toast.success(`Removed Table ${t.table_number}`);
+    else {
+      toast.success(`Floor added: ${name} (${code})`);
+      setFloorName("");
+      setFloorCode("");
+    }
+  }
+
+  async function removeFloor(f: Floor) {
+    const hasTables = tables.some((t) => t.floor_id === f.id);
+    if (hasTables) {
+      toast.error(`Remove all tables from "${f.name}" before deleting the floor`);
+      return;
+    }
+    const { error } = await supabase.from("floors").delete().eq("id", f.id);
+    if (error) toast.error(error.message);
+    else toast.success(`Removed floor: ${f.name}`);
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
+    <div className="space-y-5">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          addFloor();
+        }}
+        className="space-y-3 rounded-2xl border border-border/40 bg-secondary/15 p-4"
+      >
+        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wide">
+          Add a new floor to the hotel
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={floorName}
+            onChange={(e) => setFloorName(e.target.value)}
+            placeholder="Floor name (e.g. 1st Floor)"
+            className="h-10 flex-1 rounded-xl border border-border/60 bg-background px-3 text-xs text-foreground outline-none focus:border-counter"
+          />
+          <input
+            value={floorCode}
+            onChange={(e) => setFloorCode(e.target.value.toUpperCase())}
+            placeholder="Code (e.g. 1F)"
+            className="h-10 w-24 rounded-xl border border-border/60 bg-background px-3 text-xs text-foreground outline-none focus:border-counter text-center"
+            maxLength={4}
+          />
+        </div>
         <button
-          onClick={addTable}
-          className="btn-base font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-95 py-1.5 px-4 text-xs"
+          type="submit"
+          className="btn-base w-full font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-[0.98]"
         >
           <Plus className="h-4 w-4" />
-          <span>Add New Table</span>
+          <span>Add Floor</span>
         </button>
-      </div>
-      <ul className="max-h-[50vh] overflow-y-auto space-y-2 pr-1">
-        {tables.map((t) => {
-          const active = orders.some((o) => o.table_id === t.id && o.status !== "billed");
+      </form>
+
+      <ul className="max-h-[40vh] overflow-y-auto space-y-2 pr-1">
+        {floors.length === 0 && (
+          <li className="rounded-xl border border-dashed border-border/40 px-3 py-8 text-center text-xs text-muted-foreground">
+            No floors added yet. Add one above.
+          </li>
+        )}
+        {floors.map((f) => {
+          const count = tables.filter((t) => t.floor_id === f.id).length;
           return (
             <li
-              key={t.id}
+              key={f.id}
               className="flex items-center justify-between rounded-xl border border-border/40 bg-secondary/15 px-4 py-3"
             >
               <div>
-                <p className="text-sm font-bold text-foreground">Table {t.table_number}</p>
+                <p className="text-sm font-bold text-foreground">{f.name}</p>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/75 mt-0.5">
-                  Status:{" "}
-                  <span style={{ color: active ? "var(--warning)" : "var(--success)" }}>
-                    {active ? "Active Seating" : "Available"}
-                  </span>
+                  Code:{" "}
+                  <span className="text-counter font-extrabold">{f.code}</span>
+                  {" · "}
+                  {count} table{count !== 1 ? "s" : ""}
                 </p>
               </div>
               <button
-                disabled={active}
-                onClick={() => removeTable(t)}
+                disabled={count > 0}
+                onClick={() => removeFloor(f)}
                 className="rounded-lg p-2 text-destructive hover:bg-destructive/10 disabled:opacity-25 transition active:scale-90"
-                title={active ? "Table has active tickets" : "Remove table"}
+                title={count > 0 ? "Remove all tables on this floor first" : "Delete floor"}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -626,6 +607,416 @@ function TableManager() {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/* ============ PRICE EDITOR ============ */
+
+function PriceEditor() {
+  const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
+  const [search, setSearch] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editPrice, setEditPrice] = useState("");
+  const [bulkPercent, setBulkPercent] = useState("");
+  const [bulkCat, setBulkCat] = useState<string>("__all__");
+  const [busy, setBusy] = useState(false);
+
+  const cats = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)]));
+
+  const q = search.trim().toLowerCase();
+  const filtered = menu.filter((m) => {
+    const matchesCat = bulkCat === "__all__" || m.category === bulkCat;
+    const matchesSearch = !q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q);
+    return matchesCat && matchesSearch;
+  });
+
+  function startEdit(m: MenuItem) {
+    setEditingId(m.id);
+    setEditPrice(Number(m.price).toFixed(2));
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditPrice("");
+  }
+
+  async function savePrice(m: MenuItem) {
+    const p = parseFloat(editPrice);
+    if (isNaN(p) || p < 0) {
+      toast.error("Enter a valid price");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.from("menu_items").update({ price: p }).eq("id", m.id);
+    if (error) toast.error(error.message);
+    else toast.success(`${m.name} → ₹${p.toFixed(2)}`);
+    setBusy(false);
+    setEditingId(null);
+  }
+
+  async function applyBulk() {
+    const pct = parseFloat(bulkPercent);
+    if (isNaN(pct) || pct === 0) {
+      toast.error("Enter a non-zero percentage (e.g. 10 or -5)");
+      return;
+    }
+    const targets = menu.filter((m) => bulkCat === "__all__" || m.category === bulkCat);
+    if (targets.length === 0) {
+      toast.error("No items in selected category");
+      return;
+    }
+    setBusy(true);
+    let failed = 0;
+    await Promise.all(
+      targets.map(async (m) => {
+        const newPrice = Math.max(0, Number(m.price) * (1 + pct / 100));
+        const { error } = await supabase
+          .from("menu_items")
+          .update({ price: parseFloat(newPrice.toFixed(2)) })
+          .eq("id", m.id);
+        if (error) failed++;
+      }),
+    );
+    setBusy(false);
+    if (failed === 0)
+      toast.success(
+        `${pct > 0 ? "+" : ""}${pct}% applied to ${targets.length} item${targets.length !== 1 ? "s" : ""}`,
+      );
+    else toast.error(`${failed} update(s) failed`);
+    setBulkPercent("");
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Bulk Adjustment Panel */}
+      <div className="rounded-2xl border border-border/40 bg-secondary/15 p-4 space-y-3">
+        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wide">
+          Bulk Price Adjustment
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <select
+            value={bulkCat}
+            onChange={(e) => setBulkCat(e.target.value)}
+            className="h-10 flex-1 min-w-[140px] rounded-xl border border-border/60 bg-background px-2.5 text-xs text-foreground outline-none focus:border-counter"
+          >
+            <option value="__all__">All Categories</option>
+            {cats.map((c) => (
+              <option key={c} value={c} className="bg-card">
+                {c}
+              </option>
+            ))}
+          </select>
+          <div className="relative">
+            <input
+              type="number"
+              step="1"
+              value={bulkPercent}
+              onChange={(e) => setBulkPercent(e.target.value)}
+              placeholder="% (e.g. 10 or -5)"
+              className="h-10 w-40 rounded-xl border border-border/60 bg-background px-3 pr-8 text-xs text-foreground outline-none focus:border-counter text-center"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
+              %
+            </span>
+          </div>
+          <button
+            onClick={applyBulk}
+            disabled={busy || !bulkPercent}
+            className="btn-base font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-95 py-1.5 px-4 text-xs disabled:opacity-40"
+          >
+            {parseFloat(bulkPercent || "0") >= 0 ? (
+              <TrendingUp className="h-4 w-4" />
+            ) : (
+              <TrendingDown className="h-4 w-4" />
+            )}
+            <span>Apply to {bulkCat === "__all__" ? "All" : bulkCat}</span>
+          </button>
+        </div>
+        <p className="text-[10px] text-muted-foreground/60">
+          Enter a positive % to raise prices, negative to lower (e.g. <span className="font-bold text-success">+10</span> or <span className="font-bold text-destructive">-5</span>)
+        </p>
+      </div>
+
+      {/* Per-item Price List */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+            Individual Prices ({filtered.length})
+          </p>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter items..."
+              className="h-8 w-44 rounded-lg border border-border/60 bg-background pl-8 pr-3 text-xs text-foreground placeholder-muted-foreground/60 focus:border-counter focus:ring-1 focus:ring-counter outline-none transition"
+            />
+          </div>
+        </div>
+
+        <ul className="max-h-[50vh] overflow-y-auto space-y-2 pr-1">
+          {filtered.length === 0 && (
+            <li className="rounded-xl border border-dashed border-border/40 px-3 py-6 text-center text-xs text-muted-foreground">
+              No items match your search.
+            </li>
+          )}
+          {filtered.map((m) => (
+            <li
+              key={m.id}
+              className="flex items-center justify-between rounded-xl border border-border/30 bg-secondary/10 px-4 py-2.5 gap-3"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-bold text-foreground">{m.name}</p>
+                <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">
+                  {m.category}
+                </p>
+              </div>
+
+              {editingId === m.id ? (
+                <div className="flex items-center gap-1.5">
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
+                      ₹
+                    </span>
+                    <input
+                      autoFocus
+                      type="number"
+                      step="0.01"
+                      value={editPrice}
+                      onChange={(e) => setEditPrice(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") savePrice(m);
+                        if (e.key === "Escape") cancelEdit();
+                      }}
+                      className="h-8 w-28 rounded-lg border border-counter bg-background pl-6 pr-2 text-xs font-bold text-foreground text-center outline-none ring-1 ring-counter"
+                    />
+                  </div>
+                  <button
+                    disabled={busy}
+                    onClick={() => savePrice(m)}
+                    className="h-8 w-8 rounded-lg bg-success/15 border border-success/30 text-success hover:bg-success/25 transition flex items-center justify-center active:scale-90"
+                    title="Save price"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={cancelEdit}
+                    className="h-8 w-8 rounded-lg bg-secondary/50 border border-border/50 text-muted-foreground hover:bg-secondary hover:text-foreground transition flex items-center justify-center active:scale-90"
+                    title="Cancel"
+                  >
+                    <XIcon className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-extrabold text-counter tabular-nums">
+                    ₹{Number(m.price).toFixed(2)}
+                  </span>
+                  <button
+                    onClick={() => startEdit(m)}
+                    className="h-8 w-8 rounded-lg border border-border/60 bg-background hover:bg-secondary hover:text-foreground text-muted-foreground transition flex items-center justify-center active:scale-90"
+                    title="Edit price"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/* ============ TABLE MANAGER ============ */
+
+function TableManager() {
+  const { data: floors } = useRealtimeQuery<Floor>(fetchFloors, ["floors"]);
+  const { data: tables } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
+  const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
+  const [selectedFloorId, setSelectedFloorId] = useState<string>("");
+  const [selectedAC, setSelectedAC] = useState<boolean>(true);
+
+  // Auto-select first floor when floors load
+  useEffect(() => {
+    if (floors.length > 0 && !selectedFloorId) {
+      setSelectedFloorId(floors[0].id);
+    }
+  }, [floors, selectedFloorId]);
+
+  async function addTable() {
+    if (!selectedFloorId) {
+      toast.error("Select a floor first (add floors in the Floors tab)");
+      return;
+    }
+    const floorTables = tables.filter(
+      (t) => t.floor_id === selectedFloorId && t.is_ac === selectedAC,
+    );
+    const next = (floorTables.reduce((m, t) => Math.max(m, t.table_number), 0) || 0) + 1;
+    const { error } = await supabase.from("tables").insert({
+      table_number: next,
+      status: "free",
+      floor_id: selectedFloorId,
+      is_ac: selectedAC,
+    });
+    if (error) toast.error(error.message);
+    else {
+      const floor = floors.find((f) => f.id === selectedFloorId);
+      toast.success(
+        `Added Table ${next} → ${floor?.code ?? "?"}/${selectedAC ? "AC" : "Non-AC"}`,
+      );
+    }
+  }
+
+  async function removeTable(t: TableRow) {
+    const hasActive = orders.some((o) => o.table_id === t.id && o.status !== "billed");
+    if (hasActive) {
+      toast.error(`Table ${t.table_number} has an active ticket — settle bill first`);
+      return;
+    }
+    const { error } = await supabase.from("tables").delete().eq("id", t.id);
+    if (error) toast.error(error.message);
+    else toast.success(`Removed Table ${t.table_number}`);
+  }
+
+  const groupedFloors = floors.map((floor) => ({
+    floor,
+    acTables: tables.filter((t) => t.floor_id === floor.id && t.is_ac),
+    nonAcTables: tables.filter((t) => t.floor_id === floor.id && !t.is_ac),
+  }));
+
+  return (
+    <div className="space-y-5">
+      {/* Add Table Controls */}
+      <div className="rounded-2xl border border-border/40 bg-secondary/15 p-4 space-y-3">
+        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wide">
+          Add a new table — select floor and section
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <select
+            value={selectedFloorId}
+            onChange={(e) => setSelectedFloorId(e.target.value)}
+            className="h-10 flex-1 min-w-[150px] rounded-xl border border-border/60 bg-background px-2.5 text-xs text-foreground outline-none focus:border-counter"
+          >
+            {floors.length === 0 && (
+              <option value="">No floors — add floors first</option>
+            )}
+            {floors.map((f) => (
+              <option key={f.id} value={f.id} className="bg-card">
+                {f.name} ({f.code})
+              </option>
+            ))}
+          </select>
+
+          {/* AC / Non-AC Toggle */}
+          <div className="flex overflow-hidden rounded-xl border border-border/60">
+            <button
+              onClick={() => setSelectedAC(false)}
+              className={`px-4 py-2 text-xs font-bold transition ${
+                !selectedAC
+                  ? "bg-counter text-counter-foreground"
+                  : "bg-background text-muted-foreground hover:bg-secondary/40"
+              }`}
+            >
+              Non-AC
+            </button>
+            <button
+              onClick={() => setSelectedAC(true)}
+              className={`px-4 py-2 text-xs font-bold transition border-l border-border/60 ${
+                selectedAC
+                  ? "bg-counter text-counter-foreground"
+                  : "bg-background text-muted-foreground hover:bg-secondary/40"
+              }`}
+            >
+              AC
+            </button>
+          </div>
+
+          <button
+            onClick={addTable}
+            disabled={floors.length === 0}
+            className="btn-base font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-95 py-1.5 px-4 text-xs disabled:opacity-40"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Table</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Tables List Grouped by Floor → Section */}
+      <div className="max-h-[50vh] overflow-y-auto space-y-5 pr-1">
+        {groupedFloors.length === 0 && (
+          <p className="py-6 text-center text-xs text-muted-foreground">
+            No floors configured. Add floors in the Floors tab first.
+          </p>
+        )}
+        {groupedFloors.map(({ floor, acTables, nonAcTables }) => (
+          <div key={floor.id}>
+            <div className="flex items-center gap-2 mb-3">
+              <Building2 className="h-3.5 w-3.5 text-counter" />
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                {floor.name}
+                <span className="ml-1.5 rounded-md bg-counter/15 px-1.5 py-0.5 text-counter font-extrabold">
+                  {floor.code}
+                </span>
+              </p>
+            </div>
+            {acTables.length === 0 && nonAcTables.length === 0 && (
+              <p className="pl-5 text-xs text-muted-foreground/50">No tables on this floor yet.</p>
+            )}
+            {[
+              { label: "AC", items: acTables },
+              { label: "Non-AC", items: nonAcTables },
+            ].map(({ label, items }) => {
+              if (!items.length) return null;
+              return (
+                <div key={label} className="mb-3 pl-2">
+                  <p className="text-[9px] font-extrabold uppercase tracking-widest text-muted-foreground/50 mb-1.5">
+                    {label}
+                  </p>
+                  <ul className="space-y-1.5">
+                    {items.map((t) => {
+                      const active = orders.some(
+                        (o) => o.table_id === t.id && o.status !== "billed",
+                      );
+                      return (
+                        <li
+                          key={t.id}
+                          className="flex items-center justify-between rounded-xl border border-border/40 bg-secondary/15 px-4 py-2.5"
+                        >
+                          <div>
+                            <p className="text-sm font-bold text-foreground">
+                              {floor.code}/{label}/{t.table_number}
+                            </p>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/75 mt-0.5">
+                              Status:{" "}
+                              <span
+                                style={{ color: active ? "var(--warning)" : "var(--success)" }}
+                              >
+                                {active ? "Active Seating" : "Available"}
+                              </span>
+                            </p>
+                          </div>
+                          <button
+                            disabled={active}
+                            onClick={() => removeTable(t)}
+                            className="rounded-lg p-2 text-destructive hover:bg-destructive/10 disabled:opacity-25 transition active:scale-90"
+                            title={active ? "Table has active tickets" : "Remove table"}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -920,7 +1311,7 @@ function SalesHistory() {
           <button
             key={p.key}
             onClick={() => setPeriod(p.key)}
-            className={`rounded-full px-4.5 py-1.5 text-xs font-semibold transition focus:outline-none ${
+            className={`rounded-full px-4 py-1.5 text-xs font-semibold transition focus:outline-none ${
               period === p.key
                 ? "bg-counter text-counter-foreground shadow-sm"
                 : "bg-secondary/40 border border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
