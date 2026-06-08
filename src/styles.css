@@ -113,8 +113,8 @@
   --accent-foreground: oklch(0.96 0.01 240);
   --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 8%);
+  --border: oklch(0.28 0.015 245);
+  --input: oklch(0.22 0.015 245);
   --ring: oklch(0.68 0.17 260);
 
   --success: oklch(0.72 0.16 142);
@@ -132,7 +132,7 @@
 
   /* Utilities */
   --glass-bg: oklch(1 0 0 / 4%);
-  --glass-border: oklch(1 0 0 / 8%);
+  --glass-border: var(--border);
   --mesh-gradient-1: oklch(0.65 0.18 245 / 8%);
   --mesh-gradient-2: oklch(0.65 0.22 32 / 7%);
   --mesh-gradient-3: oklch(0.7 0.17 145 / 5%);

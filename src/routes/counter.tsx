@@ -1551,7 +1551,7 @@ function SalesHistory() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap gap-1.5 border-b border-border/20 pb-3">
+      <div className="flex flex-wrap gap-1.5 border-b border-border/55 pb-3">
         {periods.map((p) => (
           <button
             key={p.key}
@@ -1568,13 +1568,13 @@ function SalesHistory() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-border/40 bg-secondary/10 p-5 shadow-inner">
+        <div className="rounded-2xl border border-border/60 bg-secondary/10 p-5 shadow-inner">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/85">
             Total Earnings
           </p>
           <p className="mt-1 text-3xl font-black text-counter">₹{total.toFixed(2)}</p>
         </div>
-        <div className="rounded-2xl border border-border/40 bg-secondary/10 p-5 shadow-inner">
+        <div className="rounded-2xl border border-border/60 bg-secondary/10 p-5 shadow-inner">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/85">
             Billed Transactions
           </p>
@@ -1582,8 +1582,8 @@ function SalesHistory() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border/40 bg-card overflow-hidden shadow-md">
-        <div className="border-b border-border/30 bg-secondary/20 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/90">
+      <div className="rounded-2xl border border-border/60 bg-card overflow-hidden shadow-md">
+        <div className="border-b border-border/50 bg-secondary/20 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/90">
           Ranked Menu Performance
         </div>
         {rows.length === 0 ? (
@@ -1591,7 +1591,7 @@ function SalesHistory() {
             No transaction data compiled in selected range.
           </div>
         ) : (
-          <ul className="max-h-[50vh] divide-y divide-border/20 overflow-y-auto">
+          <ul className="max-h-[50vh] divide-y divide-border/45 overflow-y-auto">
             {rows.map((r) => (
               <li
                 key={r.name}
