@@ -1,5 +1,34 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sun, Moon } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getTheme, toggleTheme } from "@/lib/theme";
+
+export function ThemeToggle() {
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+
+  useEffect(() => {
+    setTheme(getTheme());
+  }, []);
+
+  const handleToggle = () => {
+    toggleTheme();
+    setTheme(getTheme());
+  };
+
+  return (
+    <button
+      onClick={handleToggle}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 bg-secondary/50 text-foreground transition hover:bg-accent hover:text-foreground active:scale-95 focus:outline-none cursor-pointer"
+      title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+    >
+      {theme === "dark" ? (
+        <Sun className="h-4 w-4 text-warning" />
+      ) : (
+        <Moon className="h-4 w-4 text-slate-700 dark:text-slate-200" />
+      )}
+    </button>
+  );
+}
 
 export function RoleHeader({
   role,
@@ -59,7 +88,10 @@ export function RoleHeader({
           </div>
         </div>
 
-        <div>{right}</div>
+        <div className="flex items-center gap-3">
+          {right}
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

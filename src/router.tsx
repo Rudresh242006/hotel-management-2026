@@ -4,6 +4,10 @@ import { routeTree } from "./routeTree.gen";
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import "./styles.css";
+import { initTheme } from "@/lib/theme";
+
+// Initialize theme as soon as scripts load to prevent a white flashing screen
+initTheme();
 
 const queryClient = new QueryClient();
 

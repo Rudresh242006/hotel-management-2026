@@ -48,6 +48,52 @@
 :root {
   --radius: 1rem;
 
+  /* Premium light slate theme */
+  --background: oklch(0.98 0.005 245);
+  --foreground: oklch(0.2 0.015 245);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.015 245);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.015 245);
+
+  /* Vibrant premium light accents */
+  --primary: oklch(0.55 0.18 250); /* Sapphire Blue */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.93 0.01 245);
+  --secondary-foreground: oklch(0.2 0.015 245);
+  --muted: oklch(0.93 0.01 245);
+  --muted-foreground: oklch(0.48 0.015 245);
+  --accent: oklch(0.89 0.02 245);
+  --accent-foreground: oklch(0.2 0.015 245);
+  --destructive: oklch(0.52 0.19 25);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0 0 0 / 8%);
+  --input: oklch(0 0 0 / 6%);
+  --ring: oklch(0.55 0.18 250);
+
+  --success: oklch(0.6 0.17 145); /* Soft Emerald */
+  --success-foreground: oklch(1 0 0);
+  --warning: oklch(0.74 0.14 80); /* Warm Honey */
+  --warning-foreground: oklch(0.2 0.04 80);
+
+  /* Role accents */
+  --waiter: oklch(0.55 0.18 250);
+  --waiter-foreground: oklch(1 0 0);
+  --counter: oklch(0.58 0.2 32);
+  --counter-foreground: oklch(1 0 0);
+  --kitchen: oklch(0.6 0.17 145);
+  --kitchen-foreground: oklch(1 0 0);
+
+  /* Utilities */
+  --glass-bg: oklch(1 0 0 / 45%);
+  --glass-border: oklch(0 0 0 / 7%);
+  --mesh-gradient-1: oklch(0.55 0.18 250 / 5%);
+  --mesh-gradient-2: oklch(0.58 0.2 32 / 4%);
+  --mesh-gradient-3: oklch(0.6 0.17 145 / 4%);
+  --scrollbar-thumb: oklch(0 0 0 / 10%);
+}
+
+.dark {
   /* Premium midnight obsidian theme */
   --background: oklch(0.08 0.01 245);
   --foreground: oklch(0.96 0.01 240);
@@ -65,24 +111,32 @@
   --muted-foreground: oklch(0.55 0.02 245);
   --accent: oklch(0.2 0.03 245);
   --accent-foreground: oklch(0.96 0.01 240);
-  --destructive: oklch(0.55 0.22 25); /* Sunset Crimson */
+  --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(1 0 0);
   --border: oklch(1 0 0 / 8%);
   --input: oklch(1 0 0 / 8%);
   --ring: oklch(0.68 0.17 260);
 
-  --success: oklch(0.72 0.16 142); /* Mint Emerald */
+  --success: oklch(0.72 0.16 142);
   --success-foreground: oklch(0.08 0.03 142);
-  --warning: oklch(0.8 0.14 85); /* Honey Amber */
+  --warning: oklch(0.8 0.14 85);
   --warning-foreground: oklch(0.08 0.03 85);
 
   /* Role accents */
-  --waiter: oklch(0.65 0.18 245); /* Ocean Cyan-Blue */
+  --waiter: oklch(0.65 0.18 245);
   --waiter-foreground: oklch(1 0 0);
-  --counter: oklch(0.65 0.22 32); /* Electric Rust / Rose Gold */
+  --counter: oklch(0.65 0.22 32);
   --counter-foreground: oklch(1 0 0);
-  --kitchen: oklch(0.7 0.17 145); /* Vivid Emerald */
+  --kitchen: oklch(0.7 0.17 145);
   --kitchen-foreground: oklch(0.08 0.03 145);
+
+  /* Utilities */
+  --glass-bg: oklch(1 0 0 / 4%);
+  --glass-border: oklch(1 0 0 / 8%);
+  --mesh-gradient-1: oklch(0.65 0.18 245 / 8%);
+  --mesh-gradient-2: oklch(0.65 0.22 32 / 7%);
+  --mesh-gradient-3: oklch(0.7 0.17 145 / 5%);
+  --scrollbar-thumb: oklch(1 0 0 / 15%);
 }
 
 @layer base {
@@ -105,6 +159,9 @@
     font-size: 15px;
     line-height: 1.6;
     min-height: 100vh;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
   }
 
   /* Remove number input spinners */
@@ -141,21 +198,24 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: oklch(1 0 0 / 15%);
+    background: var(--scrollbar-thumb);
     border-radius: 99px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: oklch(1 0 0 / 25%);
+    background: color-mix(in oklab, var(--scrollbar-thumb) 150%, transparent);
   }
 }
 
 /* ═══ GLASS CARD UTILITY ════════════════════════════════════════════════ */
 @layer components {
   .glass {
-    background: oklch(1 0 0 / 4%);
+    background: var(--glass-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid oklch(1 0 0 / 8%);
+    border: 1px solid var(--glass-border);
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .card-premium {
@@ -163,8 +223,8 @@
     border: 1px solid var(--border);
     border-radius: 1rem;
     box-shadow:
-      0 4px 30px oklch(0 0 0 / 25%),
-      0 1px 4px oklch(0 0 0 / 15%);
+      0 4px 30px oklch(0 0 0 / 15%),
+      0 1px 4px oklch(0 0 0 / 8%);
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
@@ -228,9 +288,9 @@
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(ellipse 65% 55% at 15% 15%, oklch(0.65 0.18 245 / 8%) 0%, transparent 60%),
-      radial-gradient(ellipse 55% 65% at 85% 85%, oklch(0.65 0.22 32 / 7%) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at 50% 50%, oklch(0.7 0.17 145 / 5%) 0%, transparent 70%);
+      radial-gradient(ellipse 65% 55% at 15% 15%, var(--mesh-gradient-1) 0%, transparent 60%),
+      radial-gradient(ellipse 55% 65% at 85% 85%, var(--mesh-gradient-2) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 50% 50%, var(--mesh-gradient-3) 0%, transparent 70%);
     pointer-events: none;
     z-index: 0;
   }

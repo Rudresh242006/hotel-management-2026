@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChefHat, ClipboardList, Utensils, ArrowRight } from "lucide-react";
+import { ThemeToggle } from "@/components/RoleHeader";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -43,7 +44,12 @@ const roles = [
 
 function Home() {
   return (
-    <div className="mesh-bg flex min-h-screen flex-col items-center justify-center bg-background px-6 py-12">
+    <div className="mesh-bg flex min-h-screen flex-col items-center justify-center bg-background px-6 py-12 relative">
+      {/* Floating Theme Switcher top right */}
+      <div className="absolute top-6 right-6 z-20">
+        <ThemeToggle />
+      </div>
+
       {/* Decorative background ambient light */}
       <div className="absolute top-1/4 left-1/2 -z-10 h-96 w-96 -translate-x-1/2 rounded-full bg-primary/10 blur-[128px] pointer-events-none" />
 
@@ -89,7 +95,7 @@ function Home() {
                     <Icon className="h-6 w-6" />
                   </div>
 
-                  <h2 className="text-xl font-bold text-foreground transition-colors group-hover:text-white">
+                  <h2 className="text-xl font-bold text-foreground transition-colors group-hover:text-foreground/90">
                     {r.label}
                   </h2>
                   <p className="mt-3.5 text-sm text-muted-foreground leading-relaxed">{r.desc}</p>
