@@ -6,6 +6,7 @@ import { RoleHeader, ThemeToggle } from "@/components/RoleHeader";
 import {
   CATEGORIES,
   fetchFloors,
+  fetchFloorSections,
   fetchMenu,
   fetchOrderItems,
   fetchOrders,
@@ -13,6 +14,7 @@ import {
   getTableLabel,
   useRealtimeQuery,
   type Floor,
+  type FloorSection,
   type MenuItem,
   type Order,
   type OrderItem,
@@ -834,38 +836,152 @@ function PriceEditor() {
 
 function TableManager() {
   const { data: floors } = useRealtimeQuery<Floor>(fetchFloors, ["floors"]);
+  const { data: sections } = useRealtimeQuery<FloorSection>(fetchFloorSections, ["floor_sections"]);
   const { data: tables } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
   const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
-  const [selectedFloorId, setSelectedFloorId] = useState<string>("");
-  const [selectedAC, setSelectedAC] = useState<boolean>(true);
+
+  // Floor management inputs (inline)
+  const [newFloorName, setNewFloorName] = useState("");
+  const [newFloorCode, setNewFloorCode] = useState("");
+
+  // Selected state
+  const [activeFloorId, setActiveFloorId] = useState<string | null>(null);
+  const [activeAC, setActiveAC] = useState<boolean | null>(null);
 
   // Auto-select first floor when floors load
   useEffect(() => {
-    if (floors.length > 0 && !selectedFloorId) {
-      setSelectedFloorId(floors[0].id);
+    if (floors.length > 0 && !activeFloorId) {
+      setActiveFloorId(floors[0].id);
     }
-  }, [floors, selectedFloorId]);
+  }, [floors, activeFloorId]);
 
-  async function addTable() {
-    if (!selectedFloorId) {
-      toast.error("Select a floor first (add floors in the Floors tab)");
+  // Handle setting active section when floor changes
+  useEffect(() => {
+    if (activeFloorId) {
+      const activeSections = sections.filter((s) => s.floor_id === activeFloorId);
+      if (activeSections.length > 0) {
+        if (activeAC === null || !activeSections.some((s) => s.is_ac === activeAC)) {
+          setActiveAC(activeSections[0].is_ac);
+        }
+      } else {
+        setActiveAC(null);
+      }
+    } else {
+      setActiveAC(null);
+    }
+  }, [activeFloorId, sections]);
+
+  async function addFloor() {
+    const name = newFloorName.trim();
+    const code = newFloorCode.trim().toUpperCase();
+    if (!name || !code) {
+      toast.error("Enter both floor name and code");
       return;
     }
-    const floorTables = tables.filter(
-      (t) => t.floor_id === selectedFloorId && t.is_ac === selectedAC,
+    const { error } = await supabase.from("floors").insert({ name, code });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(`Floor added: ${name} (${code})`);
+      setNewFloorName("");
+      setNewFloorCode("");
+    }
+  }
+
+  async function removeFloor(f: Floor) {
+    const hasTables = tables.some((t) => t.floor_id === f.id);
+    const hasSections = sections.some((s) => s.floor_id === f.id);
+    if (hasTables || hasSections) {
+      toast.error(`Remove all sections and tables from "${f.name}" before deleting the floor`);
+      return;
+    }
+    const { error } = await supabase.from("floors").delete().eq("id", f.id);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(`Removed floor: ${f.name}`);
+      if (activeFloorId === f.id) {
+        setActiveFloorId(floors.find((x) => x.id !== f.id)?.id ?? null);
+      }
+    }
+  }
+
+  async function addSection(floorId: string, isAC: boolean) {
+    const { error } = await supabase.from("floor_sections").insert({ floor_id: floorId, is_ac: isAC });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      const floorName = floors.find((f) => f.id === floorId)?.name ?? "Floor";
+      toast.success(`Enabled ${isAC ? "AC" : "Non-AC"} section on ${floorName}`);
+      setActiveAC(isAC);
+    }
+  }
+
+  async function removeSection(floorId: string, isAC: boolean) {
+    const sectionTables = tables.filter((t) => t.floor_id === floorId && t.is_ac === isAC);
+    const hasActiveOrders = sectionTables.some((t) =>
+      orders.some((o) => o.table_id === t.id && o.status !== "billed")
     );
-    const next = (floorTables.reduce((m, t) => Math.max(m, t.table_number), 0) || 0) + 1;
+
+    if (hasActiveOrders) {
+      toast.error("Cannot remove section: some tables have active tickets");
+      return;
+    }
+
+    const confirm = window.confirm(
+      `Are you sure you want to remove the ${isAC ? "AC" : "Non-AC"} section? This will delete all tables inside this section.`
+    );
+    if (!confirm) return;
+
+    if (sectionTables.length > 0) {
+      const { error: errTables } = await supabase
+        .from("tables")
+        .delete()
+        .eq("floor_id", floorId)
+        .eq("is_ac", isAC);
+      if (errTables) {
+        toast.error(`Error deleting tables: ${errTables.message}`);
+        return;
+      }
+    }
+
+    const { error: errSec } = await supabase
+      .from("floor_sections")
+      .delete()
+      .eq("floor_id", floorId)
+      .eq("is_ac", isAC);
+
+    if (errSec) {
+      toast.error(errSec.message);
+    } else {
+      toast.success("Section removed");
+      if (activeAC === isAC && activeFloorId === floorId) {
+        setActiveAC(null);
+      }
+    }
+  }
+
+  async function addTable() {
+    if (!activeFloorId || activeAC === null) {
+      toast.error("Select a floor and active section first");
+      return;
+    }
+    const sectionTables = tables.filter(
+      (t) => t.floor_id === activeFloorId && t.is_ac === activeAC
+    );
+    const next = (sectionTables.reduce((m, t) => Math.max(m, t.table_number), 0) || 0) + 1;
     const { error } = await supabase.from("tables").insert({
       table_number: next,
       status: "free",
-      floor_id: selectedFloorId,
-      is_ac: selectedAC,
+      floor_id: activeFloorId,
+      is_ac: activeAC,
     });
-    if (error) toast.error(error.message);
-    else {
-      const floor = floors.find((f) => f.id === selectedFloorId);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      const floor = floors.find((f) => f.id === activeFloorId);
       toast.success(
-        `Added Table ${next} → ${floor?.code ?? "?"}/${selectedAC ? "AC" : "Non-AC"}`,
+        `Added Table ${next}T → ${floor?.code ?? "?"}/${activeAC ? "AC" : "Non-AC"}`
       );
     }
   }
@@ -873,149 +989,279 @@ function TableManager() {
   async function removeTable(t: TableRow) {
     const hasActive = orders.some((o) => o.table_id === t.id && o.status !== "billed");
     if (hasActive) {
-      toast.error(`Table ${t.table_number} has an active ticket — settle bill first`);
+      toast.error(`Table ${t.table_number}T has an active ticket — settle bill first`);
       return;
     }
     const { error } = await supabase.from("tables").delete().eq("id", t.id);
-    if (error) toast.error(error.message);
-    else toast.success(`Removed Table ${t.table_number}`);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(`Removed Table ${t.table_number}T`);
+    }
   }
 
-  const groupedFloors = floors.map((floor) => ({
-    floor,
-    acTables: tables.filter((t) => t.floor_id === floor.id && t.is_ac),
-    nonAcTables: tables.filter((t) => t.floor_id === floor.id && !t.is_ac),
-  }));
+  const selectedFloor = floors.find((f) => f.id === activeFloorId) ?? null;
+  const activeFloorSections = sections.filter((s) => s.floor_id === activeFloorId);
+  const activeSectionTables = tables.filter(
+    (t) => t.floor_id === activeFloorId && t.is_ac === activeAC
+  );
 
   return (
-    <div className="space-y-5">
-      {/* Add Table Controls */}
-      <div className="rounded-2xl border border-border/40 bg-secondary/15 p-4 space-y-3">
-        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wide">
-          Add a new table — select floor and section
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <select
-            value={selectedFloorId}
-            onChange={(e) => setSelectedFloorId(e.target.value)}
-            className="h-10 flex-1 min-w-[150px] rounded-xl border border-border/60 bg-background px-2.5 text-xs text-foreground outline-none focus:border-counter"
-          >
-            {floors.length === 0 && (
-              <option value="">No floors — add floors first</option>
-            )}
-            {floors.map((f) => (
-              <option key={f.id} value={f.id} className="bg-card">
-                {f.name} ({f.code})
-              </option>
-            ))}
-          </select>
-
-          {/* AC / Non-AC Toggle */}
-          <div className="flex overflow-hidden rounded-xl border border-border/60">
-            <button
-              onClick={() => setSelectedAC(false)}
-              className={`px-4 py-2 text-xs font-bold transition ${
-                !selectedAC
-                  ? "bg-counter text-counter-foreground"
-                  : "bg-background text-muted-foreground hover:bg-secondary/40"
-              }`}
-            >
-              Non-AC
-            </button>
-            <button
-              onClick={() => setSelectedAC(true)}
-              className={`px-4 py-2 text-xs font-bold transition border-l border-border/60 ${
-                selectedAC
-                  ? "bg-counter text-counter-foreground"
-                  : "bg-background text-muted-foreground hover:bg-secondary/40"
-              }`}
-            >
-              AC
-            </button>
-          </div>
-
-          <button
-            onClick={addTable}
-            disabled={floors.length === 0}
-            className="btn-base font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-95 py-1.5 px-4 text-xs disabled:opacity-40"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Table</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Tables List Grouped by Floor → Section */}
-      <div className="max-h-[50vh] overflow-y-auto space-y-5 pr-1">
-        {groupedFloors.length === 0 && (
-          <p className="py-6 text-center text-xs text-muted-foreground">
-            No floors configured. Add floors in the Floors tab first.
+    <div className="grid gap-6 lg:grid-cols-[1.2fr_1.8fr]">
+      {/* Floor and Section Configuration (Left) */}
+      <div className="space-y-5">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            addFloor();
+          }}
+          className="space-y-3 rounded-2xl border border-border/40 bg-secondary/15 p-4"
+        >
+          <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wide">
+            Add a new floor
           </p>
-        )}
-        {groupedFloors.map(({ floor, acTables, nonAcTables }) => (
-          <div key={floor.id}>
-            <div className="flex items-center gap-2 mb-3">
-              <Building2 className="h-3.5 w-3.5 text-counter" />
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
-                {floor.name}
-                <span className="ml-1.5 rounded-md bg-counter/15 px-1.5 py-0.5 text-counter font-extrabold">
-                  {floor.code}
-                </span>
+          <div className="flex gap-2">
+            <input
+              value={newFloorName}
+              onChange={(e) => setNewFloorName(e.target.value)}
+              placeholder="Floor name (e.g. 1st Floor)"
+              className="h-10 flex-1 rounded-xl border border-border/60 bg-background px-3 text-xs text-foreground outline-none focus:border-counter"
+            />
+            <input
+              value={newFloorCode}
+              onChange={(e) => setNewFloorCode(e.target.value.toUpperCase())}
+              placeholder="Code (e.g. 1F)"
+              className="h-10 w-20 rounded-xl border border-border/60 bg-background px-3 text-xs text-foreground outline-none focus:border-counter text-center"
+              maxLength={4}
+            />
+          </div>
+          <button
+            type="submit"
+            className="btn-base w-full py-1.5 text-xs font-bold bg-counter text-counter-foreground hover:bg-counter/90"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Add Floor</span>
+          </button>
+        </form>
+
+        {/* Floors List */}
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+            Floors ({floors.length})
+          </p>
+          <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+            {floors.length === 0 && (
+              <p className="text-xs text-muted-foreground py-4 text-center border border-dashed border-border/40 rounded-xl">
+                No floors added yet.
               </p>
-            </div>
-            {acTables.length === 0 && nonAcTables.length === 0 && (
-              <p className="pl-5 text-xs text-muted-foreground/50">No tables on this floor yet.</p>
             )}
-            {[
-              { label: "AC", items: acTables },
-              { label: "Non-AC", items: nonAcTables },
-            ].map(({ label, items }) => {
-              if (!items.length) return null;
+            {floors.map((floor) => {
+              const isSelected = floor.id === activeFloorId;
+              const hasAC = sections.some((s) => s.floor_id === floor.id && s.is_ac);
+              const hasNonAC = sections.some((s) => s.floor_id === floor.id && !s.is_ac);
+              const floorTablesCount = tables.filter((t) => t.floor_id === floor.id).length;
+
               return (
-                <div key={label} className="mb-3 pl-2">
-                  <p className="text-[9px] font-extrabold uppercase tracking-widest text-muted-foreground/50 mb-1.5">
-                    {label}
-                  </p>
-                  <ul className="space-y-1.5">
-                    {items.map((t) => {
-                      const active = orders.some(
-                        (o) => o.table_id === t.id && o.status !== "billed",
-                      );
-                      return (
-                        <li
-                          key={t.id}
-                          className="flex items-center justify-between rounded-xl border border-border/40 bg-secondary/15 px-4 py-2.5"
-                        >
-                          <div>
-                            <p className="text-sm font-bold text-foreground">
-                              {floor.code}/{label}/{t.table_number}
-                            </p>
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/75 mt-0.5">
-                              Status:{" "}
-                              <span
-                                style={{ color: active ? "var(--warning)" : "var(--success)" }}
-                              >
-                                {active ? "Active Seating" : "Available"}
-                              </span>
-                            </p>
-                          </div>
+                <div
+                  key={floor.id}
+                  onClick={() => setActiveFloorId(floor.id)}
+                  className={`rounded-2xl border p-4 transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-card border-counter shadow-md ring-1 ring-counter"
+                      : "bg-card/50 border-border/40 hover:bg-secondary/15"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-muted-foreground/60" />
+                        <h4 className="font-bold text-sm text-foreground">{floor.name}</h4>
+                        <span className="rounded bg-secondary px-1.5 py-0.5 text-[9px] font-black uppercase text-muted-foreground">
+                          {floor.code}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {floorTablesCount} table{floorTablesCount !== 1 ? "s" : ""} configured
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeFloor(floor);
+                      }}
+                      disabled={floorTablesCount > 0}
+                      className="rounded-lg p-2 text-destructive hover:bg-destructive/10 disabled:opacity-20 transition"
+                      title={floorTablesCount > 0 ? "Remove all tables first" : "Delete Floor"}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Section Toggles */}
+                  {isSelected && (
+                    <div className="mt-4 border-t border-border/20 pt-3 flex flex-wrap gap-2">
+                      {/* AC Button/State */}
+                      {hasAC ? (
+                        <div className="flex items-center overflow-hidden rounded-xl border border-success/30 bg-success/5 pl-2.5 pr-1 py-1">
                           <button
-                            disabled={active}
-                            onClick={() => removeTable(t)}
-                            className="rounded-lg p-2 text-destructive hover:bg-destructive/10 disabled:opacity-25 transition active:scale-90"
-                            title={active ? "Table has active tickets" : "Remove table"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveAC(true);
+                            }}
+                            className={`text-[10px] font-bold uppercase tracking-wider transition mr-2 ${
+                              activeAC === true ? "text-success font-extrabold" : "text-muted-foreground hover:text-foreground"
+                            }`}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            AC Room
                           </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeSection(floor.id, true);
+                            }}
+                            className="rounded-lg p-1 text-destructive hover:bg-destructive/10 transition"
+                            title="Disable AC Section"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addSection(floor.id, true);
+                          }}
+                          className="rounded-xl border border-dashed border-border/60 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:bg-secondary/40 transition"
+                        >
+                          + AC Room
+                        </button>
+                      )}
+
+                      {/* Non-AC Button/State */}
+                      {hasNonAC ? (
+                        <div className="flex items-center overflow-hidden rounded-xl border border-success/30 bg-success/5 pl-2.5 pr-1 py-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveAC(false);
+                            }}
+                            className={`text-[10px] font-bold uppercase tracking-wider transition mr-2 ${
+                              activeAC === false ? "text-success font-extrabold" : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            Non-AC Room
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeSection(floor.id, false);
+                            }}
+                            className="rounded-lg p-1 text-destructive hover:bg-destructive/10 transition"
+                            title="Disable Non-AC Section"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addSection(floor.id, false);
+                          }}
+                          className="rounded-xl border border-dashed border-border/60 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:bg-secondary/40 transition"
+                        >
+                          + Non-AC Room
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
-        ))}
+        </div>
+      </div>
+
+      {/* Seating Table Setup (Right) */}
+      <div className="rounded-2xl border border-border/40 bg-card p-5 space-y-4">
+        {selectedFloor && activeAC !== null ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between border-b border-border/20 pb-3 gap-2">
+              <div>
+                <span className="badge border border-counter/20 bg-counter/10 text-counter mb-1">
+                  {selectedFloor.code} / {activeAC ? "AC" : "Non-AC"}
+                </span>
+                <h3 className="font-extrabold text-base text-foreground">
+                  Tables in {selectedFloor.name}
+                </h3>
+              </div>
+
+              <button
+                onClick={addTable}
+                className="btn-base font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-95 py-1.5 px-4 text-xs"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Table</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 max-h-[60vh] overflow-y-auto pr-1">
+              {activeSectionTables.length === 0 ? (
+                <div className="col-span-full py-16 text-center text-xs text-muted-foreground border border-dashed border-border/40 rounded-xl">
+                  No tables configured in this section. Add one using the button above.
+                </div>
+              ) : (
+                activeSectionTables.map((t) => {
+                  const active = orders.some(
+                    (o) => o.table_id === t.id && o.status !== "billed"
+                  );
+                  return (
+                    <div
+                      key={t.id}
+                      className="group flex flex-col justify-between rounded-xl border border-border/30 bg-secondary/10 p-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-muted-foreground/60 uppercase">
+                          {selectedFloor.code}/{activeAC ? "AC" : "Non-AC"}
+                        </span>
+                        <span
+                          className="h-1.5 w-1.5 rounded-full"
+                          style={{
+                            background: active ? "var(--warning)" : "var(--success)",
+                          }}
+                        />
+                      </div>
+                      <p className="mt-3 text-xl font-black text-foreground">
+                        {t.table_number}T
+                      </p>
+                      <div className="mt-3 flex items-center justify-between border-t border-border/20 pt-2">
+                        <span className="text-[9px] font-bold uppercase text-muted-foreground">
+                          {active ? "Busy" : "Free"}
+                        </span>
+                        <button
+                          disabled={active}
+                          onClick={() => removeTable(t)}
+                          className="rounded-lg p-1 text-destructive hover:bg-destructive/10 disabled:opacity-20 transition active:scale-90"
+                          title={active ? "Table has active tickets" : "Remove table"}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="flex h-full min-h-[300px] flex-col items-center justify-center text-center text-muted-foreground">
+            <Building2 className="h-8 w-8 mb-3 text-muted-foreground/35" />
+            <p className="text-xs font-semibold">
+              Select a floor and open an enabled AC / Non-AC room on the left to configure tables.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

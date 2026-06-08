@@ -6,6 +6,7 @@ import { RoleHeader, ThemeToggle } from "@/components/RoleHeader";
 import {
   CATEGORIES,
   fetchFloors,
+  fetchFloorSections,
   fetchMenu,
   fetchOrderItems,
   fetchOrders,
@@ -13,6 +14,7 @@ import {
   getTableLabel,
   useRealtimeQuery,
   type Floor,
+  type FloorSection,
   type MenuItem,
   type Order,
   type OrderItem,
@@ -28,23 +30,27 @@ export const Route = createFileRoute("/waiter")({
 
 function WaiterPage() {
   const { data: floors, loading: lf } = useRealtimeQuery<Floor>(fetchFloors, ["floors"]);
+  const { data: sections, loading: ls } = useRealtimeQuery<FloorSection>(fetchFloorSections, ["floor_sections"]);
   const { data: tables, loading: lt } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
+  const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
 
-  // Floor & AC filter state — null means "All"
+  // Selected floor state
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
-  const [acFilter, setAcFilter] = useState<boolean | null>(null);
 
-  const loading = lf || lt;
+  // Auto-select first floor when floors load
+  useEffect(() => {
+    if (floors.length > 0 && !selectedFloorId) {
+      setSelectedFloorId(floors[0].id);
+    }
+  }, [floors, selectedFloorId]);
 
+  const loading = lf || ls || lt;
   const activeTable = tables.find((t) => t.id === activeTableId) ?? null;
 
-  // Filtered tables based on selected floor + AC setting
-  const visibleTables = tables.filter((t) => {
-    if (selectedFloorId !== null && t.floor_id !== selectedFloorId) return false;
-    if (acFilter !== null && t.is_ac !== acFilter) return false;
-    return true;
-  });
+  // Filter sections for the selected floor
+  const floorSections = sections.filter((s) => s.floor_id === selectedFloorId);
+  const selectedFloor = floors.find((f) => f.id === selectedFloorId);
 
   return (
     <div className="min-h-screen bg-background">
@@ -60,20 +66,9 @@ function WaiterPage() {
         {!loading && (
           <div className="space-y-6">
             {/* Floor Selector Tabs */}
-            {floors.length > 0 && (
+            {floors.length > 0 ? (
               <div className="flex flex-wrap gap-2 items-center">
                 <Building2 className="h-4 w-4 text-muted-foreground/60 shrink-0" />
-                {/* "All Floors" pill */}
-                <button
-                  onClick={() => setSelectedFloorId(null)}
-                  className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 focus:outline-none ${
-                    selectedFloorId === null
-                      ? "bg-waiter border-transparent text-waiter-foreground shadow-sm"
-                      : "bg-secondary/40 border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  }`}
-                >
-                  All Floors
-                </button>
                 {floors.map((f) => (
                   <button
                     key={f.id}
@@ -89,149 +84,109 @@ function WaiterPage() {
                   </button>
                 ))}
               </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border/40 p-16 text-center text-muted-foreground">
+                No floors configured in the system. Add floors in the Counter Admin panel first.
+              </div>
             )}
 
-            {/* AC / Non-AC Filter */}
-            <div className="flex items-center gap-2">
-              <Thermometer className="h-4 w-4 text-muted-foreground/60 shrink-0" />
-              {[
-                { label: "All Sections", value: null },
-                { label: "AC", value: true },
-                { label: "Non-AC", value: false },
-              ].map(({ label, value }) => (
-                <button
-                  key={label}
-                  onClick={() => setAcFilter(value)}
-                  className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 focus:outline-none ${
-                    acFilter === value
-                      ? "bg-waiter border-transparent text-waiter-foreground shadow-sm"
-                      : "bg-secondary/40 border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            {/* Selected Floor Content */}
+            {selectedFloor && (
+              <div className="space-y-8">
+                {floorSections.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-border/40 p-16 text-center text-muted-foreground">
+                    No active sections (AC / Non-AC) configured for{" "}
+                    <span className="font-bold text-foreground">{selectedFloor.name}</span>.
+                    Enable them in the Counter Admin panel under Table Layout.
+                  </div>
+                ) : (
+                  floorSections.map((section) => {
+                    const sectionTables = tables.filter(
+                      (t) => t.floor_id === selectedFloorId && t.is_ac === section.is_ac
+                    );
 
-            {/* Stats Row */}
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Seating Map ({visibleTables.length} Table{visibleTables.length !== 1 ? "s" : ""})
-              </h2>
-              <div className="flex gap-4 text-xs font-semibold">
-                <span className="flex items-center gap-1.5 text-success">
-                  <span className="pulse-dot h-2 w-2 rounded-full bg-current" />
-                  Free ({visibleTables.filter((t) => t.status === "free").length})
-                </span>
-                <span className="flex items-center gap-1.5 text-destructive">
-                  <span className="pulse-dot h-2 w-2 rounded-full bg-current" />
-                  Occupied ({visibleTables.filter((t) => t.status !== "free").length})
-                </span>
-              </div>
-            </div>
+                    return (
+                      <div key={section.id} className="space-y-4">
+                        {/* Section Header */}
+                        <div className="flex items-center gap-2 border-b border-border/20 pb-2">
+                          <Thermometer className="h-4 w-4 text-waiter/70" />
+                          <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground/80">
+                            {section.is_ac ? "AC" : "Non-AC"} Section ({sectionTables.length} Table
+                            {sectionTables.length !== 1 ? "s" : ""})
+                          </h3>
+                        </div>
 
-            {/* Table Grid */}
-            {visibleTables.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border/40 p-16 text-center text-muted-foreground">
-                No tables for the selected filter. Add tables in the Counter Admin panel.
-              </div>
-            ) : (
-              /* Group by floor → AC section */
-              (() => {
-                // Determine which floors to show based on filtered tables
-                const floorIdsInView = Array.from(new Set(visibleTables.map((t) => t.floor_id)));
-                const floorsInView = floors.filter((f) => floorIdsInView.includes(f.id));
+                        {/* Tables Grid */}
+                        {sectionTables.length === 0 ? (
+                          <p className="text-xs text-muted-foreground/50 py-4 pl-1">
+                            No tables configured in this section yet. Configure them in the Counter Admin panel.
+                          </p>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                            {sectionTables.map((t) => {
+                              const free = t.status === "free";
 
-                return floorsInView.map((floor) => {
-                  const floorTables = visibleTables.filter((t) => t.floor_id === floor.id);
-                  const acTables = floorTables.filter((t) => t.is_ac);
-                  const nonAcTables = floorTables.filter((t) => !t.is_ac);
-
-                  return (
-                    <div key={floor.id} className="space-y-4">
-                      {/* Floor heading */}
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-waiter/70" />
-                        <span className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground/80">
-                          {floor.name}
-                        </span>
-                        <span className="rounded-md bg-waiter/15 px-2 py-0.5 text-[10px] font-extrabold text-waiter">
-                          {floor.code}
-                        </span>
-                      </div>
-
-                      {/* AC & Non-AC sub-sections */}
-                      {[
-                        { label: "AC", items: acTables, isAC: true },
-                        { label: "Non-AC", items: nonAcTables, isAC: false },
-                      ].map(({ label, items }) => {
-                        if (!items.length) return null;
-                        return (
-                          <div key={label} className="space-y-2">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 pl-1">
-                              {label} Section
-                            </p>
-                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                              {items.map((t) => {
-                                const free = t.status === "free";
-                                return (
-                                  <button
-                                    key={t.id}
-                                    onClick={() => setActiveTableId(t.id)}
-                                    className="group relative aspect-[1.1] overflow-hidden rounded-2xl border bg-card p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg focus:outline-none"
+                              return (
+                                <button
+                                  key={t.id}
+                                  onClick={() => setActiveTableId(t.id)}
+                                  className="group relative aspect-[1.1] overflow-hidden rounded-2xl border bg-card p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg focus:outline-none"
+                                  style={{
+                                    borderColor: free
+                                      ? "rgba(var(--success-color), 0.2)"
+                                      : "rgba(var(--destructive-color), 0.2)",
+                                    boxShadow: free
+                                      ? "0 4px 24px rgba(0,0,0,0.15), inset 0 0 12px oklch(0.72 0.16 142 / 4%)"
+                                      : "0 4px 24px rgba(0,0,0,0.15), inset 0 0 12px oklch(0.55 0.22 25 / 4%)",
+                                  }}
+                                >
+                                  {/* Status indicator bar at bottom */}
+                                  <div
+                                    className="absolute inset-x-0 bottom-0 h-1"
                                     style={{
-                                      borderColor: free
-                                        ? "rgba(var(--success-color), 0.2)"
-                                        : "rgba(var(--destructive-color), 0.2)",
-                                      boxShadow: free
-                                        ? "0 4px 24px rgba(0,0,0,0.15), inset 0 0 12px oklch(0.72 0.16 142 / 4%)"
-                                        : "0 4px 24px rgba(0,0,0,0.15), inset 0 0 12px oklch(0.55 0.22 25 / 4%)",
+                                      background: free ? "var(--success)" : "var(--destructive)",
                                     }}
-                                  >
-                                    {/* Status bar */}
-                                    <div
-                                      className="absolute inset-x-0 bottom-0 h-1"
-                                      style={{ background: free ? "var(--success)" : "var(--destructive)" }}
-                                    />
+                                  />
 
-                                    <div className="flex h-full flex-col justify-between">
-                                      <div className="flex items-center justify-between">
-                                        <Utensils className="h-4 w-4 text-muted-foreground/60" />
-                                        <span
-                                          className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border"
-                                          style={{
-                                            background: free
-                                              ? "oklch(0.72 0.16 142 / 10%)"
-                                              : "oklch(0.55 0.22 25 / 10%)",
-                                            borderColor: free ? "var(--success)" : "var(--destructive)",
-                                            color: free ? "var(--success)" : "var(--destructive)",
-                                          }}
-                                        >
-                                          {free ? "Free" : "Busy"}
-                                        </span>
-                                      </div>
-
-                                      <div>
-                                        {/* Floor/AC label */}
-                                        <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">
-                                          {floor.code}/{label}
-                                        </p>
-                                        <p className="text-3xl font-black text-foreground group-hover:text-white transition-colors">
-                                          {String(t.table_number).padStart(2, "0")}
-                                        </p>
-                                      </div>
+                                  <div className="flex h-full flex-col justify-between">
+                                    <div className="flex items-center justify-between">
+                                      <Utensils className="h-4 w-4 text-muted-foreground/60" />
+                                      <span
+                                        className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border"
+                                        style={{
+                                          background: free
+                                            ? "oklch(0.72 0.16 142 / 10%)"
+                                            : "oklch(0.55 0.22 25 / 10%)",
+                                          borderColor: free
+                                            ? "var(--success)"
+                                            : "var(--destructive)",
+                                          color: free ? "var(--success)" : "var(--destructive)",
+                                        }}
+                                      >
+                                        {free ? "Free" : "Busy"}
+                                      </span>
                                     </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
+
+                                    <div>
+                                      {/* Full Floor/Section label */}
+                                      <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                                        {selectedFloor.code}/{section.is_ac ? "AC" : "Non-AC"}
+                                      </p>
+                                      <p className="text-3xl font-black text-foreground group-hover:text-waiter transition-colors">
+                                        {t.table_number}T
+                                      </p>
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
-                    </div>
-                  );
-                });
-              })()
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             )}
           </div>
         )}
