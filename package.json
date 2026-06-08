@@ -1,7 +1,11 @@
 {
   "name": "tanstack_start_ts",
   "private": true,
-  "sideEffects": ["**/*.css", "./src/main.tsx", "./src/router.tsx"],
+  "sideEffects": [
+    "**/*.css",
+    "./src/main.tsx",
+    "./src/router.tsx"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -65,6 +69,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@tailwindcss/vite": "^4.3.0",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

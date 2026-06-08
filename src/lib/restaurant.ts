@@ -2,11 +2,31 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export type TableRow = { id: string; table_number: number; status: "free" | "occupied" };
-export type MenuItem = { id: string; name: string; category: string; price: number; is_available: boolean; allow_half: boolean };
+export type MenuItem = {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  is_available: boolean;
+  allow_half: boolean;
+};
 export type OrderStatus = "placed" | "in_kitchen" | "preparing" | "ready" | "billed";
-export type Order = { id: string; table_id: string; status: OrderStatus; created_at: string; updated_at: string };
+export type Order = {
+  id: string;
+  table_id: string;
+  status: OrderStatus;
+  created_at: string;
+  updated_at: string;
+};
 export type OrderItemStatus = "in_kitchen" | "preparing" | "ready";
-export type OrderItem = { id: string; order_id: string; menu_item_id: string; quantity: number; status: OrderItemStatus; half_quantity: number };
+export type OrderItem = {
+  id: string;
+  order_id: string;
+  menu_item_id: string;
+  quantity: number;
+  status: OrderItemStatus;
+  half_quantity: number;
+};
 
 export const CATEGORIES = ["Starters", "Main Course", "Beverages", "Desserts"] as const;
 
@@ -48,7 +68,10 @@ export async function fetchMenu(): Promise<MenuItem[]> {
   return (data ?? []) as MenuItem[];
 }
 export async function fetchOrders(): Promise<Order[]> {
-  const { data } = await supabase.from("orders").select("*").order("created_at", { ascending: true });
+  const { data } = await supabase
+    .from("orders")
+    .select("*")
+    .order("created_at", { ascending: true });
   return (data ?? []) as Order[];
 }
 export async function fetchOrderItems(): Promise<OrderItem[]> {

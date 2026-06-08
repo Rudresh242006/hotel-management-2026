@@ -65,6 +65,7 @@ npm run dev
 This project uses TanStack Start and is configured for Cloudflare Workers deployment.
 
 **First-time setup:**
+
 ```bash
 # Install Wrangler CLI globally
 npm install -g wrangler
@@ -74,6 +75,7 @@ wrangler login
 ```
 
 **Deploy to Cloudflare:**
+
 ```bash
 # Build and deploy in one command
 npm run deploy
@@ -85,6 +87,7 @@ npx wrangler deploy
 
 **Environment variables:**
 Add your Supabase credentials to Cloudflare:
+
 ```bash
 wrangler secret put VITE_SUPABASE_URL
 wrangler secret put VITE_SUPABASE_PUBLISHABLE_KEY

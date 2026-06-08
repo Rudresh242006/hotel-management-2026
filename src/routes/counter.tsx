@@ -15,8 +15,28 @@ import {
   type OrderItem,
   type TableRow,
 } from "@/lib/restaurant";
-import { ChefHat, CheckCircle2, Plus, Trash2, Settings, ClipboardList, IndianRupee, Table as TableIcon, UtensilsCrossed, Search, History, BookOpen, Ban } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  ChefHat,
+  CheckCircle2,
+  Plus,
+  Trash2,
+  Settings,
+  ClipboardList,
+  IndianRupee,
+  Table as TableIcon,
+  UtensilsCrossed,
+  Search,
+  History,
+  BookOpen,
+  Ban,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
 function formatQty(q: number) {
@@ -35,20 +55,28 @@ function CounterPage() {
     <div className="min-h-screen bg-background">
       <RoleHeader
         role="counter"
-        title="Counter Console"
-        subtitle="Live orders & admin tools"
+        title="Reception & Billing"
+        subtitle="Manage live orders and store configurations"
         right={
-          <div className="flex gap-1 rounded-lg bg-white/15 p-1">
-            <TabBtn active={tab === "orders"} onClick={() => setTab("orders")} icon={<ClipboardList className="h-4 w-4" />}>
-              Orders
+          <div className="flex gap-1 rounded-xl bg-secondary/80 border border-border/40 p-1">
+            <TabBtn
+              active={tab === "orders"}
+              onClick={() => setTab("orders")}
+              icon={<ClipboardList className="h-4 w-4" />}
+            >
+              Orders Console
             </TabBtn>
-            <TabBtn active={tab === "admin"} onClick={() => setTab("admin")} icon={<Settings className="h-4 w-4" />}>
-              Admin Panel
+            <TabBtn
+              active={tab === "admin"}
+              onClick={() => setTab("admin")}
+              icon={<Settings className="h-4 w-4" />}
+            >
+              Store Admin
             </TabBtn>
           </div>
         }
       />
-      {tab === "orders" ? <OrdersView /> : <AdminPanel />}
+      <div className="animate-fade-up">{tab === "orders" ? <OrdersView /> : <AdminPanel />}</div>
     </div>
   );
 }
@@ -67,11 +95,14 @@ function TabBtn({
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold transition ${
-        active ? "bg-white text-foreground" : "text-white/90 hover:bg-white/10"
+      className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 focus:outline-none ${
+        active
+          ? "bg-counter text-counter-foreground shadow-md"
+          : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
       }`}
     >
-      {icon} {children}
+      {icon}
+      <span>{children}</span>
     </button>
   );
 }
@@ -82,8 +113,10 @@ function OrdersView() {
   const { data: tables, loading: lt } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
   const { data: menu, loading: lm } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
   const { data: orders, loading: lo } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
-  const { data: orderItems, loading: loi } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
-  const initialLoading = lt && lm && lo && loi;
+  const { data: orderItems, loading: loi } = useRealtimeQuery<OrderItem>(fetchOrderItems, [
+    "order_items",
+  ]);
+  const initialLoading = lt || lm || lo || loi;
 
   const seenReady = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -91,7 +124,7 @@ function OrdersView() {
       if (o.status === "ready" && !seenReady.current.has(o.id)) {
         seenReady.current.add(o.id);
         const t = tables.find((x) => x.id === o.table_id);
-        toast.success(`Kitchen: order ready for Table ${t?.table_number ?? "?"}`);
+        toast.success(`Order for Table ${t?.table_number ?? "?"} is ready to serve!`);
       }
     });
   }, [orders, tables]);
@@ -112,115 +145,125 @@ function OrdersView() {
 
   async function forwardToKitchen(id: string) {
     await supabase.from("orders").update({ status: "in_kitchen" }).eq("id", id);
-    toast.success("Forwarded to kitchen");
+    toast.success("Ticket forwarded to kitchen");
   }
 
-  async function toggleAvail(item: MenuItem) {
-    await supabase.from("menu_items").update({ is_available: !item.is_available }).eq("id", item.id);
-  }
-
-  if (initialLoading) return <LoadingScreen role="counter" label="Loading orders…" />;
+  if (initialLoading) return <LoadingScreen role="counter" label="Loading floor transactions…" />;
 
   return (
-    <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1.4fr_1fr]">
-      <section>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Incoming orders ({filteredOrders.length})
+    <main className="mx-auto grid max-w-7xl gap-8 px-6 py-8 lg:grid-cols-[1.5fr_1fr]">
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
+            Incoming Orders ({filteredOrders.length})
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Dialog>
               <DialogTrigger asChild>
-                <button
-                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold"
-                  style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
-                >
-                  <BookOpen className="h-4 w-4" /> Menu
+                <button className="inline-flex items-center gap-2 rounded-xl border border-counter/30 bg-counter/10 px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-counter hover:bg-counter/25 transition active:scale-95">
+                  <BookOpen className="h-4 w-4" />
+                  <span>86 Availability</span>
                 </button>
               </DialogTrigger>
-              <DialogContent className="max-h-[80vh] overflow-y-auto">
+              <DialogContent className="max-h-[85vh] overflow-y-auto border border-border/40 bg-card/95 backdrop-blur-xl">
                 <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Ban className="h-5 w-5" /> Menu availability
+                  <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
+                    <Ban className="h-5 w-5 text-counter" />
+                    <span>Menu Stock Availability</span>
                   </DialogTitle>
                 </DialogHeader>
                 <MenuAvailabilityList menu={menu} />
               </DialogContent>
             </Dialog>
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search table or item…"
-                className="h-8 w-44 rounded-md border bg-background pl-8 pr-3 text-sm"
+                placeholder="Search table or item..."
+                className="h-9 w-48 rounded-xl border border-border/60 bg-card pl-9 pr-3 text-xs text-foreground placeholder-muted-foreground/60 focus:border-counter focus:ring-1 focus:ring-counter outline-none transition"
               />
             </div>
           </div>
         </div>
-        <div className="space-y-3">
+
+        <div className="space-y-4">
           {filteredOrders.length === 0 && (
-            <div className="rounded-xl border border-dashed p-12 text-center text-muted-foreground">
-              {search.trim() ? "No orders match your search." : "No active orders. Waiting…"}
+            <div className="rounded-2xl border border-dashed border-border/40 p-16 text-center text-muted-foreground">
+              {search.trim()
+                ? "No tickets found matching that criteria."
+                : "All quiet. No active seating tickets."}
             </div>
           )}
           {filteredOrders.map((o) => {
             const table = tables.find((t) => t.id === o.table_id);
             const items = orderItems.filter((oi) => oi.order_id === o.id);
             return (
-              <article key={o.id} className="rounded-xl border bg-card p-4 shadow-sm">
-                <header className="mb-3 flex items-center justify-between">
+              <article
+                key={o.id}
+                className="rounded-2xl border border-border/40 bg-card p-5 shadow-lg transition hover:shadow-xl"
+              >
+                <header className="mb-4 flex items-center justify-between border-b border-border/20 pb-3">
                   <div className="flex items-center gap-3">
                     <div
-                      className="flex h-10 w-10 items-center justify-center rounded-lg font-bold"
-                      style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+                      className="flex h-11 w-11 items-center justify-center rounded-xl font-black text-lg shadow-sm"
+                      style={{
+                        background: "rgba(var(--counter-color), 0.12)",
+                        color: "var(--counter)",
+                      }}
                     >
                       {table?.table_number}
                     </div>
                     <div>
-                      <p className="font-semibold">Table {table?.table_number}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(o.created_at).toLocaleTimeString()}
+                      <h3 className="font-bold text-foreground">Table {table?.table_number}</h3>
+                      <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase">
+                        Ordered at{" "}
+                        {new Date(o.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </p>
                     </div>
                   </div>
                   <StatusBadge status={o.status} />
                 </header>
-                <ul className="mb-3 space-y-1 text-sm">
+                <ul className="mb-4 space-y-2.5 text-sm">
                   {items.map((it) => {
                     const m = menu.find((x) => x.id === it.menu_item_id);
                     const isHalf = it.half_quantity > 0;
-                    const displayQty = isHalf ? `${it.half_quantity} half` : formatQty(Number(it.quantity));
+                    const displayQty = isHalf
+                      ? `${it.half_quantity} half`
+                      : formatQty(Number(it.quantity));
                     return (
-                      <li key={it.id} className="flex items-center justify-between gap-2">
-                        <span className="flex-1">{displayQty} × {m?.name ?? "?"}</span>
+                      <li
+                        key={it.id}
+                        className="flex items-center justify-between gap-3 text-foreground/80 font-medium"
+                      >
+                        <span className="flex-1">
+                          {displayQty} × {m?.name ?? "Unknown Item"}
+                        </span>
                         <ItemStatusPill status={it.status} />
-                        <span className="w-16 text-right text-muted-foreground">
+                        <span className="w-24 text-right font-semibold text-foreground">
                           {m ? `₹${(Number(m.price) * Number(it.quantity)).toFixed(2)}` : "—"}
                         </span>
                       </li>
                     );
                   })}
                 </ul>
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-2 border-t border-border/20 pt-3">
                   {o.status === "placed" && (
                     <button
                       onClick={() => forwardToKitchen(o.id)}
-                      className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold"
-                      style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+                      className="btn-base font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-95 py-1.5 px-4 text-xs"
                     >
-                      <ChefHat className="h-4 w-4" /> Forward to Kitchen
+                      <ChefHat className="h-4 w-4" />
+                      <span>Forward to Kitchen</span>
                     </button>
                   )}
                   {o.status === "ready" && (
-                    <span
-                      className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold"
-                      style={{
-                        color: "var(--success-foreground)",
-                        background: "color-mix(in oklab, var(--success) 25%, transparent)",
-                      }}
-                    >
-                      <CheckCircle2 className="h-4 w-4" /> Ready to serve
+                    <span className="inline-flex items-center gap-2 rounded-xl border border-success/30 bg-success/15 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-success">
+                      <CheckCircle2 className="h-4 w-4 pulse-dot" />
+                      <span>Ready to Serve</span>
                     </span>
                   )}
                 </div>
@@ -230,10 +273,10 @@ function OrdersView() {
         </div>
       </section>
 
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Menu availability
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
+            Live Availability List
           </h2>
         </div>
         <MenuAvailabilityList menu={menu} />
@@ -243,18 +286,44 @@ function OrdersView() {
 }
 
 function StatusBadge({ status }: { status: Order["status"] }) {
-  const map: Record<Order["status"], { label: string; bg: string }> = {
-    placed: { label: "New", bg: "var(--warning)" },
-    in_kitchen: { label: "Preparing", bg: "var(--warning)" },
-    preparing: { label: "Preparing", bg: "var(--warning)" },
-    ready: { label: "Ready", bg: "var(--success)" },
-    billed: { label: "Billed", bg: "var(--muted)" },
-  };
+  const map: Record<Order["status"], { label: string; bg: string; border: string; text: string }> =
+    {
+      placed: {
+        label: "New",
+        bg: "oklch(0.80 0.14 85 / 15%)",
+        border: "oklch(0.80 0.14 85 / 30%)",
+        text: "var(--warning)",
+      },
+      in_kitchen: {
+        label: "In Kitchen",
+        bg: "oklch(0.80 0.14 85 / 15%)",
+        border: "oklch(0.80 0.14 85 / 30%)",
+        text: "var(--warning)",
+      },
+      preparing: {
+        label: "Preparing",
+        bg: "oklch(0.80 0.14 85 / 15%)",
+        border: "oklch(0.80 0.14 85 / 30%)",
+        text: "var(--warning)",
+      },
+      ready: {
+        label: "Ready",
+        bg: "oklch(0.72 0.16 142 / 15%)",
+        border: "oklch(0.72 0.16 142 / 30%)",
+        text: "var(--success)",
+      },
+      billed: {
+        label: "Billed",
+        bg: "rgba(255,255,255,0.05)",
+        border: "rgba(255,255,255,0.1)",
+        text: "var(--muted-foreground)",
+      },
+    };
   const s = map[status];
   return (
     <span
-      className="rounded-full px-3 py-1 text-xs font-semibold uppercase"
-      style={{ background: s.bg, color: "white" }}
+      className="rounded-full border px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+      style={{ background: s.bg, borderColor: s.border, color: s.text }}
     >
       {s.label}
     </span>
@@ -265,69 +334,81 @@ function ItemStatusPill({ status }: { status: OrderItem["status"] }) {
   const isReady = status === "ready";
   return (
     <span
-      className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+      className="rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"
       style={{
-        background: isReady ? "var(--success)" : "var(--warning)",
-        color: "white",
+        background: isReady ? "oklch(0.72 0.16 142 / 15%)" : "oklch(0.80 0.14 85 / 15%)",
+        borderColor: isReady ? "oklch(0.72 0.16 142 / 30%)" : "oklch(0.80 0.14 85 / 30%)",
+        color: isReady ? "var(--success)" : "var(--warning)",
       }}
     >
-      {isReady ? "Ready" : "Preparing"}
+      {isReady ? "Ready" : "Cooking"}
     </span>
   );
 }
 
-
 function MenuAvailabilityList({ menu }: { menu: MenuItem[] }) {
   const [query, setQuery] = useState("");
   async function toggleAvail(item: MenuItem) {
-    await supabase.from("menu_items").update({ is_available: !item.is_available }).eq("id", item.id);
+    await supabase
+      .from("menu_items")
+      .update({ is_available: !item.is_available })
+      .eq("id", item.id);
   }
   const q = query.trim().toLowerCase();
   const cats = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)]));
+
   return (
-    <div className="space-y-4 rounded-xl border bg-card p-4">
+    <div className="space-y-4 rounded-2xl border border-border/40 bg-card p-5 shadow-md">
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search item or category…"
-          className="h-8 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
+          placeholder="Filter menu stock..."
+          className="h-9 w-full rounded-xl border border-border/60 bg-background pl-9 pr-3 text-xs text-foreground placeholder-muted-foreground/60 focus:border-counter focus:ring-1 focus:ring-counter outline-none transition"
         />
-        {q && (
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-            {menu.filter((m) => m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q)).length}
-          </span>
-        )}
       </div>
-      {cats.map((cat) => {
-        const items = menu.filter((m) => m.category === cat && (!q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q)));
-        if (!items.length) return null;
-        return (
-          <div key={cat}>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</p>
-            <ul className="space-y-1">
-              {items.map((m) => (
-                <li key={m.id} className="flex items-center justify-between rounded-md px-2 py-2 hover:bg-accent">
-                  <span className={`text-sm ${m.is_available ? "" : "text-muted-foreground line-through"}`}>
-                    {m.name}
-                  </span>
-                  <button
-                    onClick={() => toggleAvail(m)}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      m.is_available
-                        ? "bg-success/20 text-foreground"
-                        : "bg-destructive/20 text-foreground"
-                    }`}
+      <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-1">
+        {cats.map((cat) => {
+          const items = menu.filter(
+            (m) =>
+              m.category === cat &&
+              (!q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q)),
+          );
+          if (!items.length) return null;
+          return (
+            <div key={cat} className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                {cat}
+              </p>
+              <ul className="space-y-1.5">
+                {items.map((m) => (
+                  <li
+                    key={m.id}
+                    className="flex items-center justify-between rounded-xl bg-secondary/25 border border-border/20 px-3 py-2 hover:bg-secondary/40 transition"
                   >
-                    {m.is_available ? "Available" : "Unavailable"}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        );
-      })}
+                    <span
+                      className={`text-xs font-semibold ${m.is_available ? "text-foreground" : "text-muted-foreground/50 line-through"}`}
+                    >
+                      {m.name}
+                    </span>
+                    <button
+                      onClick={() => toggleAvail(m)}
+                      className={`rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide border transition ${
+                        m.is_available
+                          ? "bg-success/10 border-success/30 text-success hover:bg-success/20"
+                          : "bg-destructive/10 border-destructive/30 text-destructive hover:bg-destructive/20"
+                      }`}
+                    >
+                      {m.is_available ? "In Stock" : "86ed Out"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -336,64 +417,67 @@ function MenuAvailabilityList({ menu }: { menu: MenuItem[] }) {
 
 function AdminPanel() {
   const sections = [
-    { key: "prices", title: "Menu Price Editor", icon: <IndianRupee className="h-4 w-4" />, render: () => <PriceEditor /> },
-    { key: "tables", title: "Table Manager", icon: <TableIcon className="h-4 w-4" />, render: () => <TableManager /> },
-    { key: "menu", title: "Menu Item Manager", icon: <UtensilsCrossed className="h-4 w-4" />, render: () => <MenuItemManager /> },
-    { key: "history", title: "Sales History", icon: <History className="h-4 w-4" />, render: () => <SalesHistory /> },
+    {
+      key: "prices",
+      title: "Price Editor",
+      icon: <IndianRupee className="h-4 w-4" />,
+      render: () => <PriceEditor />,
+    },
+    {
+      key: "tables",
+      title: "Table layout",
+      icon: <TableIcon className="h-4 w-4" />,
+      render: () => <TableManager />,
+    },
+    {
+      key: "menu",
+      title: "Menu Items",
+      icon: <UtensilsCrossed className="h-4 w-4" />,
+      render: () => <MenuItemManager />,
+    },
+    {
+      key: "history",
+      title: "Sales Stats",
+      icon: <History className="h-4 w-4" />,
+      render: () => <SalesHistory />,
+    },
   ] as const;
+
   const [active, setActive] = useState<(typeof sections)[number]["key"]>("prices");
   const current = sections.find((s) => s.key === active)!;
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-8">
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <main className="mx-auto max-w-4xl px-6 py-8 space-y-6">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         {sections.map((s) => {
           const isActive = s.key === active;
           return (
             <button
               key={s.key}
               onClick={() => setActive(s.key)}
-              className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-xs font-bold uppercase tracking-wider shadow-sm transition ${
-                isActive ? "" : "border bg-card text-foreground hover:bg-accent"
-              }`}
-              style={
+              className={`inline-flex items-center justify-center gap-2 rounded-xl p-3 text-xs font-bold uppercase tracking-wider border shadow-sm transition-all focus:outline-none ${
                 isActive
-                  ? { background: "var(--counter)", color: "var(--counter-foreground)" }
-                  : undefined
-              }
+                  ? "bg-counter text-counter-foreground border-transparent shadow-lg"
+                  : "bg-card border-border/50 text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+              }`}
             >
-              {s.icon} {s.title}
+              {s.icon}
+              <span>{s.title}</span>
             </button>
           );
         })}
       </div>
-      <section className="rounded-xl border bg-card shadow-sm">
-        <header
-          className="rounded-t-xl px-4 py-3 text-sm font-bold uppercase tracking-wider"
-          style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
-        >
-          <span className="flex items-center gap-2">{current.icon} {current.title}</span>
+
+      <section className="rounded-2xl border border-border/40 bg-card overflow-hidden shadow-xl">
+        <header className="border-b border-border/40 px-5 py-4 text-xs font-bold uppercase tracking-wider text-foreground bg-secondary/40 flex items-center gap-2">
+          {current.icon}
+          <span>{current.title} Management</span>
         </header>
-        <div className="p-4">{current.render()}</div>
+        <div className="p-5">{current.render()}</div>
       </section>
     </main>
   );
 }
-
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-xl border bg-card shadow-sm">
-      <header
-        className="rounded-t-xl px-4 py-3 text-sm font-bold uppercase tracking-wider"
-        style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
-      >
-        {title}
-      </header>
-      <div className="p-4">{children}</div>
-    </section>
-  );
-}
-
 
 function PriceEditor() {
   const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
@@ -405,7 +489,7 @@ function PriceEditor() {
     if (raw === undefined) return;
     const price = Number(raw);
     if (isNaN(price) || price < 0) {
-      toast.error("Invalid price");
+      toast.error("Invalid price entered");
       return;
     }
     await supabase.from("menu_items").update({ price }).eq("id", item.id);
@@ -414,63 +498,68 @@ function PriceEditor() {
       delete n[item.id];
       return n;
     });
-    toast.success(`Updated ${item.name}`);
+    toast.success(`Updated price for ${item.name}`);
   }
 
   const allCategories = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)]));
   const q = search.trim().toLowerCase();
 
   return (
-    <div className="max-h-[60vh] space-y-4 overflow-y-auto">
+    <div className="space-y-4">
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search item…"
-          className="h-8 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
+          placeholder="Filter price sheet..."
+          className="h-9 w-full rounded-xl border border-border/60 bg-background pl-9 pr-3 text-xs text-foreground placeholder-muted-foreground/60 focus:border-counter focus:ring-1 focus:ring-counter outline-none transition"
         />
-        {q && (
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-            {menu.filter((m) => m.name.toLowerCase().includes(q)).length}
-          </span>
-        )}
       </div>
-      {allCategories.map((cat) => {
-        const items = menu.filter((m) => m.category === cat && (!q || m.name.toLowerCase().includes(q)));
-        if (!items.length) return null;
-        return (
-          <div key={cat}>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</p>
-            <ul className="space-y-2">
-              {items.map((m) => {
-                const dirty = edits[m.id] !== undefined;
-                return (
-                  <li key={m.id} className="flex items-center gap-2">
-                    <span className="flex-1 truncate text-sm">{m.name}</span>
-                    <span className="text-xs text-muted-foreground">₹</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={dirty ? edits[m.id] : Number(m.price).toFixed(2)}
-                      onChange={(e) => setEdits((s) => ({ ...s, [m.id]: e.target.value }))}
-                      className="w-20 rounded-md border bg-background px-2 py-1 text-sm"
-                    />
-                    <button
-                      disabled={!dirty}
-                      onClick={() => savePrice(m)}
-                      className="rounded-md px-2 py-1 text-xs font-semibold disabled:opacity-30"
-                      style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+      <div className="max-h-[50vh] overflow-y-auto space-y-5 pr-1">
+        {allCategories.map((cat) => {
+          const items = menu.filter(
+            (m) => m.category === cat && (!q || m.name.toLowerCase().includes(q)),
+          );
+          if (!items.length) return null;
+          return (
+            <div key={cat} className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                {cat}
+              </p>
+              <ul className="space-y-1.5">
+                {items.map((m) => {
+                  const dirty = edits[m.id] !== undefined;
+                  return (
+                    <li
+                      key={m.id}
+                      className="flex items-center gap-3 rounded-xl bg-secondary/15 border border-border/20 p-3"
                     >
-                      Save
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        );
-      })}
+                      <span className="flex-1 truncate text-xs font-semibold text-foreground">
+                        {m.name}
+                      </span>
+                      <span className="text-xs font-bold text-muted-foreground">₹</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={dirty ? edits[m.id] : Number(m.price).toFixed(2)}
+                        onChange={(e) => setEdits((s) => ({ ...s, [m.id]: e.target.value }))}
+                        className="w-20 rounded-lg border border-border/60 bg-background px-2.5 py-1 text-xs font-bold text-foreground text-center focus:border-counter outline-none"
+                      />
+                      <button
+                        disabled={!dirty}
+                        onClick={() => savePrice(m)}
+                        className="btn-base font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-95 py-1 px-3 text-[10px] rounded-lg"
+                      >
+                        Save
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -483,13 +572,13 @@ function TableManager() {
     const next = (tables.reduce((m, t) => Math.max(m, t.table_number), 0) || 0) + 1;
     const { error } = await supabase.from("tables").insert({ table_number: next, status: "free" });
     if (error) toast.error(error.message);
-    else toast.success(`Added Table ${next}`);
+    else toast.success(`Added Table ${next} to floor layout`);
   }
 
   async function removeTable(t: TableRow) {
     const hasActive = orders.some((o) => o.table_id === t.id && o.status !== "billed");
     if (hasActive) {
-      toast.error(`Table ${t.table_number} has an active order`);
+      toast.error(`Table ${t.table_number} has an active active ticket`);
       return;
     }
     const { error } = await supabase.from("tables").delete().eq("id", t.id);
@@ -498,32 +587,38 @@ function TableManager() {
   }
 
   return (
-    <div>
-      <div className="mb-3 flex justify-end">
+    <div className="space-y-4">
+      <div className="flex justify-end">
         <button
           onClick={addTable}
-          className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold"
-          style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+          className="btn-base font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-95 py-1.5 px-4 text-xs"
         >
-          <Plus className="h-4 w-4" /> Add Table
+          <Plus className="h-4 w-4" />
+          <span>Add New Table</span>
         </button>
       </div>
-      <ul className="max-h-[50vh] space-y-1 overflow-y-auto">
+      <ul className="max-h-[50vh] overflow-y-auto space-y-2 pr-1">
         {tables.map((t) => {
           const active = orders.some((o) => o.table_id === t.id && o.status !== "billed");
           return (
-            <li key={t.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+            <li
+              key={t.id}
+              className="flex items-center justify-between rounded-xl border border-border/40 bg-secondary/15 px-4 py-3"
+            >
               <div>
-                <p className="font-semibold">Table {t.table_number}</p>
-                <p className="text-xs text-muted-foreground">
-                  {t.status} {active && "· active order"}
+                <p className="text-sm font-bold text-foreground">Table {t.table_number}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/75 mt-0.5">
+                  Status:{" "}
+                  <span style={{ color: active ? "var(--warning)" : "var(--success)" }}>
+                    {active ? "Active Seating" : "Available"}
+                  </span>
                 </p>
               </div>
               <button
                 disabled={active}
                 onClick={() => removeTable(t)}
-                className="rounded-md p-2 text-destructive hover:bg-destructive/10 disabled:opacity-30"
-                title={active ? "Has active order" : "Remove"}
+                className="rounded-lg p-2 text-destructive hover:bg-destructive/10 disabled:opacity-25 transition active:scale-90"
+                title={active ? "Table has active tickets" : "Remove table"}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -540,7 +635,9 @@ const NEW_CATEGORY = "__new__";
 function MenuItemManager() {
   const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
   const [manualCategories, setManualCategories] = useState<string[]>([]);
-  const allCategories = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category), ...manualCategories]));
+  const allCategories = Array.from(
+    new Set([...CATEGORIES, ...menu.map((m) => m.category), ...manualCategories]),
+  );
   const [name, setName] = useState("");
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
   const [newCategory, setNewCategory] = useState("");
@@ -558,19 +655,23 @@ function MenuItemManager() {
     if (!existing) setManualCategories((current) => [...current, trimmed]);
     setCategory(existing ?? trimmed);
     setNewCategory("");
-    toast.success(`Category selected: ${existing ?? trimmed}`);
+    toast.success(`Category set: ${existing ?? trimmed}`);
   }
 
   async function addItem() {
     const p = Number(price);
     const finalCategory = category === NEW_CATEGORY ? newCategory.trim() : category;
     if (!name.trim() || isNaN(p) || p < 0 || !finalCategory) {
-      toast.error("Enter valid name, category, and price");
+      toast.error("Invalid menu item entry details");
       return;
     }
-    const { error } = await supabase
-      .from("menu_items")
-      .insert({ name: name.trim(), category: finalCategory, price: p, is_available: true, allow_half: allowHalf });
+    const { error } = await supabase.from("menu_items").insert({
+      name: name.trim(),
+      category: finalCategory,
+      price: p,
+      is_available: true,
+      allow_half: allowHalf,
+    });
     if (error) {
       toast.error(error.message);
       return;
@@ -580,18 +681,20 @@ function MenuItemManager() {
     setNewCategory("");
     setAllowHalf(false);
     setCategory(finalCategory);
-    toast.success(`Added ${name}`);
+    toast.success(`Successfully added ${name}`);
   }
 
   async function removeItem(m: MenuItem) {
     const { error } = await supabase.from("menu_items").delete().eq("id", m.id);
     if (error) toast.error(error.message);
-    else toast.success(`Removed ${m.name}`);
+    else toast.success(`Removed ${m.name} from index`);
   }
 
   async function toggleAllowHalf(m: MenuItem) {
     await supabase.from("menu_items").update({ allow_half: !m.allow_half }).eq("id", m.id);
-    toast.success(m.allow_half ? `${m.name} half plate disabled` : `${m.name} half plate enabled`);
+    toast.success(
+      m.allow_half ? `${m.name} half portions disabled` : `${m.name} half portions enabled`,
+    );
   }
 
   const activeCat = category === NEW_CATEGORY ? newCategory.trim() : category;
@@ -603,33 +706,37 @@ function MenuItemManager() {
   });
 
   return (
-    <div>
+    <div className="space-y-6">
       <form
         onSubmit={(e) => {
           e.preventDefault();
           addItem();
         }}
-        className="mb-4 space-y-2 rounded-lg border bg-muted/30 p-3"
+        className="space-y-3 rounded-2xl border border-border/40 bg-secondary/15 p-4"
       >
-        <p className="text-xs text-muted-foreground">
-          Tip: choose "Add new category", type the category, then press Enter or Add Category. After that, add items under it.
+        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wide">
+          Insert menu item details below
         </p>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Item name"
-          className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+          placeholder="Menu item name..."
+          className="h-10 w-full rounded-xl border border-border/60 bg-background px-3 text-xs text-foreground outline-none focus:border-counter"
         />
         <div className="flex gap-2">
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="flex-1 rounded-md border bg-background px-2 py-1.5 text-sm"
+            className="h-10 flex-1 rounded-xl border border-border/60 bg-background px-2.5 text-xs text-foreground outline-none focus:border-counter"
           >
             {allCategories.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c} className="bg-card">
+                {c}
+              </option>
             ))}
-            <option value={NEW_CATEGORY}>+ Add new category…</option>
+            <option value={NEW_CATEGORY} className="bg-card">
+              + Create custom category...
+            </option>
           </select>
           <input
             type="number"
@@ -637,21 +744,26 @@ function MenuItemManager() {
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             placeholder="Price"
-            className="w-24 rounded-md border bg-background px-2 py-1.5 text-sm"
+            className="h-10 w-24 rounded-xl border border-border/60 bg-background px-3 text-xs text-foreground outline-none focus:border-counter text-center"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 px-1">
           <input
             type="checkbox"
             id="allowHalf"
             checked={allowHalf}
             onChange={(e) => setAllowHalf(e.target.checked)}
-            className="rounded"
+            className="rounded border-border/60 text-counter focus:ring-counter bg-background"
           />
-          <label htmlFor="allowHalf" className="text-sm">Allow half plate/glass</label>
+          <label
+            htmlFor="allowHalf"
+            className="text-xs font-semibold text-muted-foreground select-none"
+          >
+            Allow half plate / small portions
+          </label>
         </div>
         {category === NEW_CATEGORY && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 animate-fade-up">
             <input
               autoFocus
               value={newCategory}
@@ -662,82 +774,86 @@ function MenuItemManager() {
                   addCategory();
                 }
               }}
-              placeholder="New category name (e.g. Salads, Soups)"
-              className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1.5 text-sm"
+              placeholder="e.g. Refreshments, Platters"
+              className="h-10 min-w-0 flex-1 rounded-xl border border-border/60 bg-background px-3 text-xs text-foreground outline-none focus:border-counter"
             />
             <button
               type="button"
               onClick={addCategory}
-              className="shrink-0 rounded-md px-3 py-1.5 text-sm font-semibold"
-              style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+              className="btn-base font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-95 py-1 px-4 text-xs rounded-xl"
             >
-              Add Category
+              Add
             </button>
           </div>
         )}
         <button
           type="submit"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold"
-          style={{ background: "var(--counter)", color: "var(--counter-foreground)" }}
+          className="btn-base w-full font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-[0.98] mt-2"
         >
-          <Plus className="h-4 w-4" /> Add Item
+          <Plus className="h-4 w-4" />
+          <span>Register Menu Item</span>
         </button>
       </form>
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {activeCat ? `Items in "${activeCat}" (${filtered.length})` : `All items (${menu.length})`}
-        </p>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search item…"
-            className="h-8 w-40 rounded-md border bg-background pl-8 pr-3 text-sm"
-          />
-          {q && (
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-              {filtered.length}
-            </span>
-          )}
+
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+            {activeCat
+              ? `Index: "${activeCat}" (${filtered.length})`
+              : `Full Index (${menu.length})`}
+          </p>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter list..."
+              className="h-8 w-44 rounded-lg border border-border/60 bg-background pl-8 pr-3 text-xs text-foreground placeholder-muted-foreground/60 focus:border-counter focus:ring-1 focus:ring-counter outline-none transition"
+            />
+          </div>
         </div>
+
+        <ul className="max-h-[45vh] overflow-y-auto space-y-2 pr-1">
+          {filtered.length === 0 && (
+            <li className="rounded-xl border border-dashed border-border/40 px-3 py-6 text-center text-xs text-muted-foreground">
+              No items matching search conditions.
+            </li>
+          )}
+          {filtered.map((m) => (
+            <li
+              key={m.id}
+              className="flex items-center justify-between rounded-xl border border-border/30 bg-secondary/10 px-4 py-2.5"
+            >
+              <div className="min-w-0 flex-1 pr-3">
+                <p className="truncate text-xs font-bold text-foreground">{m.name}</p>
+                <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">
+                  {m.category} ·{" "}
+                  <span className="text-counter font-bold">₹{Number(m.price).toFixed(2)}</span>
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => toggleAllowHalf(m)}
+                  className={`rounded-lg px-2.5 py-1 text-[10px] font-bold border transition ${
+                    m.allow_half
+                      ? "bg-success/15 border-success/30 text-success hover:bg-success/20"
+                      : "bg-secondary/50 border-border/50 text-muted-foreground hover:bg-secondary"
+                  }`}
+                  title={m.allow_half ? "Portions: half enabled" : "Portions: half disabled"}
+                >
+                  ½ Portion
+                </button>
+                <button
+                  onClick={() => removeItem(m)}
+                  className="rounded-lg p-2 text-destructive hover:bg-destructive/10 transition active:scale-90"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
-      <ul className="max-h-[45vh] space-y-1 overflow-y-auto">
-        {filtered.length === 0 && (
-          <li className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
-            No items match your search.
-          </li>
-        )}
-        {filtered.map((m) => (
-          <li key={m.id} className="flex items-center justify-between rounded-md border px-3 py-2">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{m.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {m.category} · ₹{Number(m.price).toFixed(2)}
-              </p>
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => toggleAllowHalf(m)}
-                className={`rounded-md px-2 py-1 text-xs font-semibold ${
-                  m.allow_half
-                    ? "bg-success/20 text-success"
-                    : "bg-muted text-muted-foreground"
-                }`}
-                title={m.allow_half ? "Half plate enabled" : "Half plate disabled"}
-              >
-                ½
-              </button>
-              <button
-                onClick={() => removeItem(m)}
-                className="rounded-md p-2 text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
@@ -760,10 +876,22 @@ function SalesHistory() {
 
   const since = (() => {
     const d = new Date();
-    if (period === "today") { d.setHours(0, 0, 0, 0); return d; }
-    if (period === "week") { d.setDate(d.getDate() - 7); return d; }
-    if (period === "month") { d.setMonth(d.getMonth() - 1); return d; }
-    if (period === "year") { d.setFullYear(d.getFullYear() - 1); return d; }
+    if (period === "today") {
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    if (period === "week") {
+      d.setDate(d.getDate() - 7);
+      return d;
+    }
+    if (period === "month") {
+      d.setMonth(d.getMonth() - 1);
+      return d;
+    }
+    if (period === "year") {
+      d.setFullYear(d.getFullYear() - 1);
+      return d;
+    }
     return new Date(0);
   })();
 
@@ -786,50 +914,58 @@ function SalesHistory() {
   const rows = Array.from(stats.values()).sort((a, b) => b.revenue - a.revenue);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-1.5 border-b border-border/20 pb-3">
         {periods.map((p) => (
           <button
             key={p.key}
             onClick={() => setPeriod(p.key)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-full px-4.5 py-1.5 text-xs font-semibold transition focus:outline-none ${
               period === p.key
-                ? "text-white"
-                : "bg-muted text-foreground hover:bg-accent"
+                ? "bg-counter text-counter-foreground shadow-sm"
+                : "bg-secondary/40 border border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
-            style={period === p.key ? { background: "var(--counter)", color: "var(--counter-foreground)" } : undefined}
           >
             {p.label}
           </button>
         ))}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">Total Sales</p>
-          <p className="mt-1 text-2xl font-bold">₹{total.toFixed(2)}</p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-border/40 bg-secondary/10 p-5 shadow-inner">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/85">
+            Total Earnings
+          </p>
+          <p className="mt-1 text-3xl font-black text-counter">₹{total.toFixed(2)}</p>
         </div>
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">Orders Billed</p>
-          <p className="mt-1 text-2xl font-bold">{billed.length}</p>
+        <div className="rounded-2xl border border-border/40 bg-secondary/10 p-5 shadow-inner">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/85">
+            Billed Transactions
+          </p>
+          <p className="mt-1 text-3xl font-black text-foreground">{billed.length}</p>
         </div>
       </div>
 
-      <div className="rounded-xl border bg-card">
-        <div className="border-b px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          Items sold
+      <div className="rounded-2xl border border-border/40 bg-card overflow-hidden shadow-md">
+        <div className="border-b border-border/30 bg-secondary/20 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/90">
+          Ranked Menu Performance
         </div>
         {rows.length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">
-            No sales in this period.
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            No transaction data compiled in selected range.
           </div>
         ) : (
-          <ul className="max-h-[50vh] divide-y overflow-y-auto">
+          <ul className="max-h-[50vh] divide-y divide-border/20 overflow-y-auto">
             {rows.map((r) => (
-              <li key={r.name} className="flex items-center justify-between px-4 py-2 text-sm">
-                <span className="flex-1 truncate">{r.name}</span>
-                <span className="w-16 text-right text-muted-foreground">× {r.qty}</span>
-                <span className="w-24 text-right font-semibold">₹{r.revenue.toFixed(2)}</span>
+              <li
+                key={r.name}
+                className="flex items-center justify-between px-4 py-3 text-xs font-semibold hover:bg-secondary/10 transition"
+              >
+                <span className="flex-1 truncate text-foreground">{r.name}</span>
+                <span className="w-20 text-right text-muted-foreground font-bold">× {r.qty}</span>
+                <span className="w-28 text-right text-foreground font-extrabold">
+                  ₹{r.revenue.toFixed(2)}
+                </span>
               </li>
             ))}
           </ul>
