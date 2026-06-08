@@ -1512,24 +1512,23 @@ function SalesHistory() {
   ];
 
   const since = (() => {
-    const d = new Date();
+    if (period === "lifetime") return new Date(0);
+    const now = new Date();
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    const istTime = new Date(utcMs + 5.5 * 3600000);
     if (period === "today") {
-      d.setHours(0, 0, 0, 0);
-      return d;
+      istTime.setHours(0, 0, 0, 0);
+    } else if (period === "week") {
+      istTime.setDate(istTime.getDate() - 7);
+      istTime.setHours(0, 0, 0, 0);
+    } else if (period === "month") {
+      istTime.setMonth(istTime.getMonth() - 1);
+      istTime.setHours(0, 0, 0, 0);
+    } else if (period === "year") {
+      istTime.setFullYear(istTime.getFullYear() - 1);
+      istTime.setHours(0, 0, 0, 0);
     }
-    if (period === "week") {
-      d.setDate(d.getDate() - 7);
-      return d;
-    }
-    if (period === "month") {
-      d.setMonth(d.getMonth() - 1);
-      return d;
-    }
-    if (period === "year") {
-      d.setFullYear(d.getFullYear() - 1);
-      return d;
-    }
-    return new Date(0);
+    return new Date(istTime.getTime() - 5.5 * 3600000);
   })();
 
   const billed = orders.filter((o) => o.status === "billed" && new Date(o.updated_at) >= since);
