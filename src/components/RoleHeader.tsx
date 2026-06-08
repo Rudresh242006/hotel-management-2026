@@ -88,10 +88,7 @@ export function RoleHeader({
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {right}
-          <ThemeToggle />
-        </div>
+        <div className="flex items-center gap-3">{right}</div>
       </div>
     </header>
   );
