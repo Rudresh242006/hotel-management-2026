@@ -2,19 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { RoleHeader, ThemeToggle } from "@/components/RoleHeader";
+import { RoleHeader } from "@/components/RoleHeader";
 import {
   CATEGORIES,
-  fetchFloors,
-  fetchFloorSections,
   fetchMenu,
   fetchOrderItems,
   fetchOrders,
   fetchTables,
-  getTableLabel,
   useRealtimeQuery,
-  type Floor,
-  type FloorSection,
   type MenuItem,
   type Order,
   type OrderItem,
@@ -34,12 +29,6 @@ import {
   History,
   BookOpen,
   Ban,
-  Building2,
-  Pencil,
-  Check,
-  X as XIcon,
-  TrendingUp,
-  TrendingDown,
 } from "lucide-react";
 import {
   Dialog,
@@ -69,24 +58,21 @@ function CounterPage() {
         title="Reception & Billing"
         subtitle="Manage live orders and store configurations"
         right={
-          <div className="flex items-center gap-3">
-            <div className="flex gap-1 rounded-xl bg-secondary/80 border border-border/40 p-1">
-              <TabBtn
-                active={tab === "orders"}
-                onClick={() => setTab("orders")}
-                icon={<ClipboardList className="h-4 w-4" />}
-              >
-                Orders Console
-              </TabBtn>
-              <TabBtn
-                active={tab === "admin"}
-                onClick={() => setTab("admin")}
-                icon={<Settings className="h-4 w-4" />}
-              >
-                Store Admin
-              </TabBtn>
-            </div>
-            <ThemeToggle />
+          <div className="flex gap-1 rounded-xl bg-secondary/80 border border-border/40 p-1">
+            <TabBtn
+              active={tab === "orders"}
+              onClick={() => setTab("orders")}
+              icon={<ClipboardList className="h-4 w-4" />}
+            >
+              Orders Console
+            </TabBtn>
+            <TabBtn
+              active={tab === "admin"}
+              onClick={() => setTab("admin")}
+              icon={<Settings className="h-4 w-4" />}
+            >
+              Store Admin
+            </TabBtn>
           </div>
         }
       />
@@ -124,7 +110,6 @@ function TabBtn({
 /* ============ ORDERS VIEW ============ */
 
 function OrdersView() {
-  const { data: floors } = useRealtimeQuery<Floor>(fetchFloors, ["floors"]);
   const { data: tables, loading: lt } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
   const { data: menu, loading: lm } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
   const { data: orders, loading: lo } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
@@ -139,11 +124,10 @@ function OrdersView() {
       if (o.status === "ready" && !seenReady.current.has(o.id)) {
         seenReady.current.add(o.id);
         const t = tables.find((x) => x.id === o.table_id);
-        const label = t ? getTableLabel(t, floors) : "?";
-        toast.success(`Order for ${label} is ready to serve!`);
+        toast.success(`Order for Table ${t?.table_number ?? "?"} is ready to serve!`);
       }
     });
-  }, [orders, tables, floors]);
+  }, [orders, tables]);
 
   const [search, setSearch] = useState("");
   const active = orders.filter((o) => o.status !== "billed");
@@ -151,8 +135,6 @@ function OrdersView() {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     const table = tables.find((t) => t.id === o.table_id);
-    const tableLabel = table ? getTableLabel(table, floors).toLowerCase() : "";
-    if (tableLabel.includes(q)) return true;
     if (table?.table_number.toString().includes(q)) return true;
     const items = orderItems.filter((oi) => oi.order_id === o.id);
     return items.some((it) => {
@@ -198,8 +180,8 @@ function OrdersView() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search table, floor or item..."
-                className="h-9 w-52 rounded-xl border border-border/60 bg-card pl-9 pr-3 text-xs text-foreground placeholder-muted-foreground/60 focus:border-counter focus:ring-1 focus:ring-counter outline-none transition"
+                placeholder="Search table or item..."
+                className="h-9 w-48 rounded-xl border border-border/60 bg-card pl-9 pr-3 text-xs text-foreground placeholder-muted-foreground/60 focus:border-counter focus:ring-1 focus:ring-counter outline-none transition"
               />
             </div>
           </div>
@@ -215,7 +197,6 @@ function OrdersView() {
           )}
           {filteredOrders.map((o) => {
             const table = tables.find((t) => t.id === o.table_id);
-            const tableLabel = table ? getTableLabel(table, floors) : "??";
             const items = orderItems.filter((oi) => oi.order_id === o.id);
             return (
               <article
@@ -225,16 +206,16 @@ function OrdersView() {
                 <header className="mb-4 flex items-center justify-between border-b border-border/20 pb-3">
                   <div className="flex items-center gap-3">
                     <div
-                      className="flex h-11 min-w-[3rem] items-center justify-center rounded-xl font-black text-sm shadow-sm px-2"
+                      className="flex h-11 w-11 items-center justify-center rounded-xl font-black text-lg shadow-sm"
                       style={{
                         background: "rgba(var(--counter-color), 0.12)",
                         color: "var(--counter)",
                       }}
                     >
-                      {tableLabel}
+                      {table?.table_number}
                     </div>
                     <div>
-                      <h3 className="font-bold text-foreground">{tableLabel}</h3>
+                      <h3 className="font-bold text-foreground">Table {table?.table_number}</h3>
                       <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase">
                         Ordered at{" "}
                         {new Date(o.created_at).toLocaleTimeString([], {
@@ -437,12 +418,6 @@ function MenuAvailabilityList({ menu }: { menu: MenuItem[] }) {
 function AdminPanel() {
   const sections = [
     {
-      key: "floors",
-      title: "Floors",
-      icon: <Building2 className="h-4 w-4" />,
-      render: () => <FloorManager />,
-    },
-    {
       key: "prices",
       title: "Price Editor",
       icon: <IndianRupee className="h-4 w-4" />,
@@ -450,7 +425,7 @@ function AdminPanel() {
     },
     {
       key: "tables",
-      title: "Table Layout",
+      title: "Table layout",
       icon: <TableIcon className="h-4 w-4" />,
       render: () => <TableManager />,
     },
@@ -468,12 +443,12 @@ function AdminPanel() {
     },
   ] as const;
 
-  const [active, setActive] = useState<(typeof sections)[number]["key"]>("floors");
+  const [active, setActive] = useState<(typeof sections)[number]["key"]>("prices");
   const current = sections.find((s) => s.key === active)!;
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-8 space-y-6">
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         {sections.map((s) => {
           const isActive = s.key === active;
           return (
@@ -504,6 +479,7 @@ function AdminPanel() {
   );
 }
 
+<<<<<<< HEAD
 function FloorManager() {
   const { data: floors } = useRealtimeQuery<Floor>(fetchFloors, ["floors"]);
   const { data: sections } = useRealtimeQuery<FloorSection>(fetchFloorSections, ["floor_sections"]);
@@ -518,26 +494,121 @@ function FloorManager() {
     const code = floorCode.trim().toUpperCase();
     if (!name || !code) {
       toast.error("Enter both floor name and code");
+=======
+function PriceEditor() {
+  const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
+  const [edits, setEdits] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState("");
+
+  async function savePrice(item: MenuItem) {
+    const raw = edits[item.id];
+    if (raw === undefined) return;
+    const price = Number(raw);
+    if (isNaN(price) || price < 0) {
+      toast.error("Invalid price entered");
+>>>>>>> 13037ced34db4de95068f1ccc8222eadf1c4069d
       return;
     }
-    const { error } = await supabase.from("floors").insert({ name, code });
-    if (error) toast.error(error.message);
-    else {
-      toast.success(`Floor added: ${name} (${code})`);
-      setFloorName("");
-      setFloorCode("");
-    }
+    await supabase.from("menu_items").update({ price }).eq("id", item.id);
+    setEdits((e) => {
+      const n = { ...e };
+      delete n[item.id];
+      return n;
+    });
+    toast.success(`Updated price for ${item.name}`);
   }
 
+<<<<<<< HEAD
   async function removeFloor(f: Floor) {
     const hasTables = tables.some((t) => t.floor_id === f.id);
     const hasSections = sections.some((s) => s.floor_id === f.id);
     if (hasTables || hasSections) {
       toast.error(`Remove all sections/tables from "${f.name}" before deleting`);
+=======
+  const allCategories = Array.from(new Set([...CATEGORIES, ...menu.map((m) => m.category)]));
+  const q = search.trim().toLowerCase();
+
+  return (
+    <div className="space-y-4">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Filter price sheet..."
+          className="h-9 w-full rounded-xl border border-border/60 bg-background pl-9 pr-3 text-xs text-foreground placeholder-muted-foreground/60 focus:border-counter focus:ring-1 focus:ring-counter outline-none transition"
+        />
+      </div>
+      <div className="max-h-[50vh] overflow-y-auto space-y-5 pr-1">
+        {allCategories.map((cat) => {
+          const items = menu.filter(
+            (m) => m.category === cat && (!q || m.name.toLowerCase().includes(q)),
+          );
+          if (!items.length) return null;
+          return (
+            <div key={cat} className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                {cat}
+              </p>
+              <ul className="space-y-1.5">
+                {items.map((m) => {
+                  const dirty = edits[m.id] !== undefined;
+                  return (
+                    <li
+                      key={m.id}
+                      className="flex items-center gap-3 rounded-xl bg-secondary/15 border border-border/20 p-3"
+                    >
+                      <span className="flex-1 truncate text-xs font-semibold text-foreground">
+                        {m.name}
+                      </span>
+                      <span className="text-xs font-bold text-muted-foreground">₹</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={dirty ? edits[m.id] : Number(m.price).toFixed(2)}
+                        onChange={(e) => setEdits((s) => ({ ...s, [m.id]: e.target.value }))}
+                        className="w-20 rounded-lg border border-border/60 bg-background px-2.5 py-1 text-xs font-bold text-foreground text-center focus:border-counter outline-none"
+                      />
+                      <button
+                        disabled={!dirty}
+                        onClick={() => savePrice(m)}
+                        className="btn-base font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-95 py-1 px-3 text-[10px] rounded-lg"
+                      >
+                        Save
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TableManager() {
+  const { data: tables } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
+  const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
+
+  async function addTable() {
+    const next = (tables.reduce((m, t) => Math.max(m, t.table_number), 0) || 0) + 1;
+    const { error } = await supabase.from("tables").insert({ table_number: next, status: "free" });
+    if (error) toast.error(error.message);
+    else toast.success(`Added Table ${next} to floor layout`);
+  }
+
+  async function removeTable(t: TableRow) {
+    const hasActive = orders.some((o) => o.table_id === t.id && o.status !== "billed");
+    if (hasActive) {
+      toast.error(`Table ${t.table_number} has an active active ticket`);
+>>>>>>> 13037ced34db4de95068f1ccc8222eadf1c4069d
       return;
     }
-    const { error } = await supabase.from("floors").delete().eq("id", f.id);
+    const { error } = await supabase.from("tables").delete().eq("id", t.id);
     if (error) toast.error(error.message);
+<<<<<<< HEAD
     else {
       toast.success(`Removed floor: ${f.name}`);
       if (expandedId === f.id) setExpandedId(null);
@@ -591,13 +662,22 @@ function FloorManager() {
             maxLength={4}
           />
         </div>
+=======
+    else toast.success(`Removed Table ${t.table_number}`);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+>>>>>>> 13037ced34db4de95068f1ccc8222eadf1c4069d
         <button
-          type="submit"
-          className="btn-base w-full font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-[0.98]"
+          onClick={addTable}
+          className="btn-base font-bold bg-counter text-counter-foreground hover:bg-counter/90 active:scale-95 py-1.5 px-4 text-xs"
         >
           <Plus className="h-4 w-4" />
-          <span>Add Floor</span>
+          <span>Add New Table</span>
         </button>
+<<<<<<< HEAD
       </form>
 
       {/* Floors list */}
@@ -631,6 +711,31 @@ function FloorManager() {
               <button
                 onClick={() => setExpandedId(isOpen ? null : f.id)}
                 className="w-full flex items-center justify-between px-4 py-3.5 text-left focus:outline-none"
+=======
+      </div>
+      <ul className="max-h-[50vh] overflow-y-auto space-y-2 pr-1">
+        {tables.map((t) => {
+          const active = orders.some((o) => o.table_id === t.id && o.status !== "billed");
+          return (
+            <li
+              key={t.id}
+              className="flex items-center justify-between rounded-xl border border-border/40 bg-secondary/15 px-4 py-3"
+            >
+              <div>
+                <p className="text-sm font-bold text-foreground">Table {t.table_number}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/75 mt-0.5">
+                  Status:{" "}
+                  <span style={{ color: active ? "var(--warning)" : "var(--success)" }}>
+                    {active ? "Active Seating" : "Available"}
+                  </span>
+                </p>
+              </div>
+              <button
+                disabled={active}
+                onClick={() => removeTable(t)}
+                className="rounded-lg p-2 text-destructive hover:bg-destructive/10 disabled:opacity-25 transition active:scale-90"
+                title={active ? "Table has active tickets" : "Remove table"}
+>>>>>>> 13037ced34db4de95068f1ccc8222eadf1c4069d
               >
                 <div className="flex items-center gap-3">
                   <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-[10px] font-black ${
@@ -812,6 +917,7 @@ function FloorManager() {
   );
 }
 
+<<<<<<< HEAD
 
 /* ============ PRICE EDITOR ============ */
 
@@ -1467,6 +1573,8 @@ function TableManager() {
   );
 }
 
+=======
+>>>>>>> 13037ced34db4de95068f1ccc8222eadf1c4069d
 const NEW_CATEGORY = "__new__";
 
 function MenuItemManager() {
@@ -1712,23 +1820,24 @@ function SalesHistory() {
   ];
 
   const since = (() => {
-    if (period === "lifetime") return new Date(0);
-    const now = new Date();
-    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-    const istTime = new Date(utcMs + 5.5 * 3600000);
+    const d = new Date();
     if (period === "today") {
-      istTime.setHours(0, 0, 0, 0);
-    } else if (period === "week") {
-      istTime.setDate(istTime.getDate() - 7);
-      istTime.setHours(0, 0, 0, 0);
-    } else if (period === "month") {
-      istTime.setMonth(istTime.getMonth() - 1);
-      istTime.setHours(0, 0, 0, 0);
-    } else if (period === "year") {
-      istTime.setFullYear(istTime.getFullYear() - 1);
-      istTime.setHours(0, 0, 0, 0);
+      d.setHours(0, 0, 0, 0);
+      return d;
     }
-    return new Date(istTime.getTime() - 5.5 * 3600000);
+    if (period === "week") {
+      d.setDate(d.getDate() - 7);
+      return d;
+    }
+    if (period === "month") {
+      d.setMonth(d.getMonth() - 1);
+      return d;
+    }
+    if (period === "year") {
+      d.setFullYear(d.getFullYear() - 1);
+      return d;
+    }
+    return new Date(0);
   })();
 
   const billed = orders.filter((o) => o.status === "billed" && new Date(o.updated_at) >= since);
@@ -1751,12 +1860,12 @@ function SalesHistory() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap gap-1.5 border-b border-border/55 pb-3">
+      <div className="flex flex-wrap gap-1.5 border-b border-border/20 pb-3">
         {periods.map((p) => (
           <button
             key={p.key}
             onClick={() => setPeriod(p.key)}
-            className={`rounded-full px-4 py-1.5 text-xs font-semibold transition focus:outline-none ${
+            className={`rounded-full px-4.5 py-1.5 text-xs font-semibold transition focus:outline-none ${
               period === p.key
                 ? "bg-counter text-counter-foreground shadow-sm"
                 : "bg-secondary/40 border border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -1768,13 +1877,13 @@ function SalesHistory() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-border/60 bg-secondary/10 p-5 shadow-inner">
+        <div className="rounded-2xl border border-border/40 bg-secondary/10 p-5 shadow-inner">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/85">
             Total Earnings
           </p>
           <p className="mt-1 text-3xl font-black text-counter">₹{total.toFixed(2)}</p>
         </div>
-        <div className="rounded-2xl border border-border/60 bg-secondary/10 p-5 shadow-inner">
+        <div className="rounded-2xl border border-border/40 bg-secondary/10 p-5 shadow-inner">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/85">
             Billed Transactions
           </p>
@@ -1782,8 +1891,8 @@ function SalesHistory() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border/60 bg-card overflow-hidden shadow-md">
-        <div className="border-b border-border/50 bg-secondary/20 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/90">
+      <div className="rounded-2xl border border-border/40 bg-card overflow-hidden shadow-md">
+        <div className="border-b border-border/30 bg-secondary/20 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/90">
           Ranked Menu Performance
         </div>
         {rows.length === 0 ? (
@@ -1791,7 +1900,7 @@ function SalesHistory() {
             No transaction data compiled in selected range.
           </div>
         ) : (
-          <ul className="max-h-[50vh] divide-y divide-border/45 overflow-y-auto">
+          <ul className="max-h-[50vh] divide-y divide-border/20 overflow-y-auto">
             {rows.map((r) => (
               <li
                 key={r.name}

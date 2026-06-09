@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { RoleHeader, ThemeToggle } from "@/components/RoleHeader";
+import { RoleHeader } from "@/components/RoleHeader";
 import {
   Dialog,
   DialogContent,
@@ -12,14 +12,11 @@ import {
 } from "@/components/ui/dialog";
 import {
   CATEGORIES,
-  fetchFloors,
   fetchMenu,
   fetchOrderItems,
   fetchOrders,
   fetchTables,
-  getTableLabel,
   useRealtimeQuery,
-  type Floor,
   type MenuItem,
   type Order,
   type OrderItem,
@@ -34,7 +31,6 @@ export const Route = createFileRoute("/kitchen")({
 });
 
 function KitchenPage() {
-  const { data: floors } = useRealtimeQuery<Floor>(fetchFloors, ["floors"]);
   const { data: tables, loading: lt } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
   const { data: menu, loading: lm } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
   const { data: orders, loading: lo } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
@@ -86,7 +82,6 @@ function KitchenPage() {
         role="kitchen"
         title="Kitchen Dispatch"
         subtitle="Live tickets from waiter entries"
-        right={<ThemeToggle />}
       />
       {initialLoading ? (
         <LoadingScreen role="kitchen" label="Synchronizing kitchen backlog…" />
@@ -149,9 +144,9 @@ function KitchenPage() {
               <div className="grid gap-5 md:grid-cols-2">
                 {queue.map((o) => {
                   const table = tables.find((t) => t.id === o.table_id);
-                  const tableLabel = table ? getTableLabel(table, floors) : "??";
                   const items = orderItems.filter((oi) => oi.order_id === o.id);
 
+                  // Set color theme depending on status
                   const accentColor =
                     o.status === "ready"
                       ? "var(--success)"
@@ -172,12 +167,8 @@ function KitchenPage() {
                             <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/75">
                               Table
                             </p>
-                            {/* Full floor/AC/number label */}
-                            <p
-                              className="text-2xl font-black text-foreground leading-tight"
-                              style={{ letterSpacing: "-0.02em" }}
-                            >
-                              {tableLabel}
+                            <p className="text-3xl font-black text-foreground">
+                              {table?.table_number}
                             </p>
                           </div>
                           <div className="text-right">
@@ -243,7 +234,7 @@ function KitchenPage() {
                                     className="h-8 w-8 rounded-lg border border-border/60 bg-background hover:bg-secondary hover:text-foreground disabled:opacity-20 transition flex items-center justify-center"
                                     title="Mark item cooking"
                                   >
-                                    <Flame className="h-4 w-4" />
+                                    <Flame className="h-4.5 w-4.5" />
                                   </button>
                                   <button
                                     disabled={it.status === "ready"}
@@ -251,7 +242,7 @@ function KitchenPage() {
                                     className="h-8 w-8 rounded-lg bg-kitchen text-kitchen-foreground hover:bg-kitchen/90 disabled:opacity-20 transition flex items-center justify-center"
                                     title="Mark item ready"
                                   >
-                                    <CheckCircle2 className="h-4 w-4" />
+                                    <CheckCircle2 className="h-4.5 w-4.5" />
                                   </button>
                                 </div>
                               </li>
@@ -317,7 +308,7 @@ function Menu86Search({ menu }: { menu: MenuItem[] }) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Filter ingredients..."
-        className="h-8 w-44 rounded-xl border border-border/60 bg-card pl-8 pr-3 text-xs text-foreground placeholder-muted-foreground/60 focus:border-kitchen focus:ring-1 focus:ring-kitchen outline-none transition"
+        className="h-8 w-44 rounded-xl border border-border/60 bg-card pl-8.5 pr-3 text-xs text-foreground placeholder-muted-foreground/60 focus:border-kitchen focus:ring-1 focus:ring-kitchen outline-none transition"
       />
       {query.trim() && (
         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground">
