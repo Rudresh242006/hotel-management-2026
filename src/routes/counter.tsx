@@ -504,13 +504,14 @@ function AdminPanel() {
   );
 }
 
-/* ============ FLOOR MANAGER ============ */
-
 function FloorManager() {
   const { data: floors } = useRealtimeQuery<Floor>(fetchFloors, ["floors"]);
+  const { data: sections } = useRealtimeQuery<FloorSection>(fetchFloorSections, ["floor_sections"]);
   const { data: tables } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
+  const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
   const [floorName, setFloorName] = useState("");
   const [floorCode, setFloorCode] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   async function addFloor() {
     const name = floorName.trim();
@@ -530,22 +531,46 @@ function FloorManager() {
 
   async function removeFloor(f: Floor) {
     const hasTables = tables.some((t) => t.floor_id === f.id);
-    if (hasTables) {
-      toast.error(`Remove all tables from "${f.name}" before deleting the floor`);
+    const hasSections = sections.some((s) => s.floor_id === f.id);
+    if (hasTables || hasSections) {
+      toast.error(`Remove all sections/tables from "${f.name}" before deleting`);
       return;
     }
     const { error } = await supabase.from("floors").delete().eq("id", f.id);
     if (error) toast.error(error.message);
-    else toast.success(`Removed floor: ${f.name}`);
+    else {
+      toast.success(`Removed floor: ${f.name}`);
+      if (expandedId === f.id) setExpandedId(null);
+    }
+  }
+
+  async function addSection(floorId: string, isAC: boolean) {
+    const { error } = await supabase.from("floor_sections").insert({ floor_id: floorId, is_ac: isAC });
+    if (error) toast.error(error.message);
+    else toast.success(`Enabled ${isAC ? "AC" : "Non-AC"} section`);
+  }
+
+  async function removeSection(floorId: string, isAC: boolean) {
+    const sectionTables = tables.filter((t) => t.floor_id === floorId && t.is_ac === isAC);
+    const hasActive = sectionTables.some((t) =>
+      orders.some((o) => o.table_id === t.id && o.status !== "billed")
+    );
+    if (hasActive) { toast.error("Cannot remove: some tables have active orders"); return; }
+    if (!window.confirm(`Remove ${isAC ? "AC" : "Non-AC"} section and all its tables?`)) return;
+    if (sectionTables.length > 0) {
+      const { error } = await supabase.from("tables").delete().eq("floor_id", floorId).eq("is_ac", isAC);
+      if (error) { toast.error(error.message); return; }
+    }
+    const { error } = await supabase.from("floor_sections").delete().eq("floor_id", floorId).eq("is_ac", isAC);
+    if (error) toast.error(error.message);
+    else toast.success("Section removed");
   }
 
   return (
     <div className="space-y-5">
+      {/* Add floor form */}
       <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          addFloor();
-        }}
+        onSubmit={(e) => { e.preventDefault(); addFloor(); }}
         className="space-y-3 rounded-2xl border border-border/40 bg-secondary/15 p-4"
       >
         <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wide">
@@ -575,43 +600,218 @@ function FloorManager() {
         </button>
       </form>
 
-      <ul className="max-h-[40vh] overflow-y-auto space-y-2 pr-1">
+      {/* Floors list */}
+      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
         {floors.length === 0 && (
-          <li className="rounded-xl border border-dashed border-border/40 px-3 py-8 text-center text-xs text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/40 px-3 py-10 text-center text-xs text-muted-foreground">
             No floors added yet. Add one above.
-          </li>
+          </div>
         )}
         {floors.map((f) => {
-          const count = tables.filter((t) => t.floor_id === f.id).length;
+          const isOpen = expandedId === f.id;
+          const floorSections = sections.filter((s) => s.floor_id === f.id);
+          const hasAC = floorSections.some((s) => s.is_ac);
+          const hasNonAC = floorSections.some((s) => !s.is_ac);
+          const acTables = tables.filter((t) => t.floor_id === f.id && t.is_ac);
+          const nonAcTables = tables.filter((t) => t.floor_id === f.id && !t.is_ac);
+          const totalTables = acTables.length + nonAcTables.length;
+          const occupiedAC = acTables.filter((t) => t.status === "occupied").length;
+          const occupiedNonAC = nonAcTables.filter((t) => t.status === "occupied").length;
+
           return (
-            <li
+            <div
               key={f.id}
-              className="flex items-center justify-between rounded-xl border border-border/40 bg-secondary/15 px-4 py-3"
+              className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                isOpen
+                  ? "border-counter shadow-lg ring-1 ring-counter/40 bg-card"
+                  : "border-border/50 bg-card/50 hover:bg-card hover:border-border"
+              }`}
             >
-              <div>
-                <p className="text-sm font-bold text-foreground">{f.name}</p>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/75 mt-0.5">
-                  Code:{" "}
-                  <span className="text-counter font-extrabold">{f.code}</span>
-                  {" · "}
-                  {count} table{count !== 1 ? "s" : ""}
-                </p>
-              </div>
+              {/* Floor header row */}
               <button
-                disabled={count > 0}
-                onClick={() => removeFloor(f)}
-                className="rounded-lg p-2 text-destructive hover:bg-destructive/10 disabled:opacity-25 transition active:scale-90"
-                title={count > 0 ? "Remove all tables on this floor first" : "Delete floor"}
+                onClick={() => setExpandedId(isOpen ? null : f.id)}
+                className="w-full flex items-center justify-between px-4 py-3.5 text-left focus:outline-none"
               >
-                <Trash2 className="h-4 w-4" />
+                <div className="flex items-center gap-3">
+                  <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-[10px] font-black ${
+                    isOpen ? "bg-counter text-counter-foreground" : "bg-secondary text-muted-foreground"
+                  }`}>
+                    {f.code}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-foreground leading-none">{f.name}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {totalTables} table{totalTables !== 1 ? "s" : ""} ·{" "}
+                      {floorSections.length === 0 ? "no sections" : [hasAC && "AC", hasNonAC && "Non-AC"].filter(Boolean).join(" + ")}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeFloor(f); }}
+                    disabled={totalTables > 0 || floorSections.length > 0}
+                    className="rounded-lg p-1.5 text-destructive hover:bg-destructive/10 disabled:opacity-20 transition active:scale-90"
+                    title={totalTables > 0 ? "Remove all tables first" : "Delete floor"}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                  <span className={`text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}>
+                    ›
+                  </span>
+                </div>
               </button>
-            </li>
+
+              {/* Expanded detail */}
+              {isOpen && (
+                <div className="border-t border-border/40 bg-secondary/10 px-4 py-4 space-y-4">
+                  {/* Section overview cards */}
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                    Sections on {f.name}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* AC Section card */}
+                    <div className={`rounded-xl border p-3.5 space-y-2.5 transition-all ${
+                      hasAC ? "border-success/40 bg-success/5" : "border-dashed border-border/40 bg-card/30"
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`h-2 w-2 rounded-full ${hasAC ? "bg-success" : "bg-muted-foreground/30"}`} />
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-foreground">
+                            AC Room
+                          </span>
+                        </div>
+                        {hasAC ? (
+                          <button
+                            onClick={() => removeSection(f.id, true)}
+                            className="rounded p-0.5 text-destructive hover:bg-destructive/10 transition"
+                            title="Remove AC section"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => addSection(f.id, true)}
+                            className="rounded-lg border border-dashed border-border px-2 py-0.5 text-[9px] font-bold text-muted-foreground hover:bg-secondary/50 transition"
+                          >
+                            + Enable
+                          </button>
+                        )}
+                      </div>
+
+                      {hasAC ? (
+                        <>
+                          <div className="flex items-end gap-1">
+                            <span className="text-2xl font-black text-success leading-none">{acTables.length}</span>
+                            <span className="text-[10px] text-muted-foreground mb-0.5">tables</span>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-[9px] font-semibold text-muted-foreground">
+                              <span>{occupiedAC} occupied</span>
+                              <span>{acTables.length - occupiedAC} free</span>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-success transition-all"
+                                style={{ width: acTables.length > 0 ? `${(occupiedAC / acTables.length) * 100}%` : "0%" }}
+                              />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/50">Not enabled</p>
+                      )}
+                    </div>
+
+                    {/* Non-AC Section card */}
+                    <div className={`rounded-xl border p-3.5 space-y-2.5 transition-all ${
+                      hasNonAC ? "border-warning/40 bg-warning/5" : "border-dashed border-border/40 bg-card/30"
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`h-2 w-2 rounded-full ${hasNonAC ? "bg-warning" : "bg-muted-foreground/30"}`} />
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-foreground">
+                            Non-AC
+                          </span>
+                        </div>
+                        {hasNonAC ? (
+                          <button
+                            onClick={() => removeSection(f.id, false)}
+                            className="rounded p-0.5 text-destructive hover:bg-destructive/10 transition"
+                            title="Remove Non-AC section"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => addSection(f.id, false)}
+                            className="rounded-lg border border-dashed border-border px-2 py-0.5 text-[9px] font-bold text-muted-foreground hover:bg-secondary/50 transition"
+                          >
+                            + Enable
+                          </button>
+                        )}
+                      </div>
+
+                      {hasNonAC ? (
+                        <>
+                          <div className="flex items-end gap-1">
+                            <span className="text-2xl font-black text-warning leading-none">{nonAcTables.length}</span>
+                            <span className="text-[10px] text-muted-foreground mb-0.5">tables</span>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-[9px] font-semibold text-muted-foreground">
+                              <span>{occupiedNonAC} occupied</span>
+                              <span>{nonAcTables.length - occupiedNonAC} free</span>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-warning transition-all"
+                                style={{ width: nonAcTables.length > 0 ? `${(occupiedNonAC / nonAcTables.length) * 100}%` : "0%" }}
+                              />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/50">Not enabled</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Individual table chips */}
+                  {totalTables > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                        Tables at a glance
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[...acTables, ...nonAcTables]
+                          .sort((a, b) => (a.is_ac === b.is_ac ? a.table_number - b.table_number : a.is_ac ? -1 : 1))
+                          .map((t) => (
+                            <span
+                              key={t.id}
+                              className="rounded-lg border px-2 py-0.5 text-[9px] font-bold tabular-nums"
+                              style={{
+                                background: t.status === "occupied" ? "oklch(0.55 0.22 25 / 10%)" : "oklch(0.72 0.16 142 / 10%)",
+                                borderColor: t.status === "occupied" ? "oklch(0.55 0.22 25 / 40%)" : "oklch(0.72 0.16 142 / 40%)",
+                                color: t.status === "occupied" ? "var(--destructive)" : "var(--success)",
+                              }}
+                            >
+                              {f.code}/{t.is_ac ? "AC" : "NAC"}/{t.table_number}T
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           );
         })}
-      </ul>
+      </div>
     </div>
   );
 }
+
 
 /* ============ PRICE EDITOR ============ */
 
