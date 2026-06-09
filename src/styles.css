@@ -113,8 +113,8 @@
   --accent-foreground: oklch(0.96 0.01 240);
   --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.55 0.025 245);
-  --input: oklch(0.30 0.02 245);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 8%);
   --ring: oklch(0.68 0.17 260);
 
   --success: oklch(0.72 0.16 142);
@@ -131,8 +131,8 @@
   --kitchen-foreground: oklch(0.08 0.03 145);
 
   /* Utilities */
-  --glass-bg: oklch(1 0 0 / 6%);
-  --glass-border: oklch(0.55 0.025 245);
+  --glass-bg: oklch(1 0 0 / 4%);
+  --glass-border: oklch(1 0 0 / 8%);
   --mesh-gradient-1: oklch(0.65 0.18 245 / 8%);
   --mesh-gradient-2: oklch(0.65 0.22 32 / 7%);
   --mesh-gradient-3: oklch(0.7 0.17 145 / 5%);
@@ -303,7 +303,7 @@
   z-index: 20;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid oklch(0.55 0.025 245 / 60%);
+  border-bottom: 1px solid oklch(1 0 0 / 8%);
 }
 
 /* ═══ ANIMATIONS ═════════════════════════════════════════════════════════ */

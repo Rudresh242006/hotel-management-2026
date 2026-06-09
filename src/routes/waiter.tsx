@@ -2,25 +2,20 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { RoleHeader, ThemeToggle } from "@/components/RoleHeader";
+import { RoleHeader } from "@/components/RoleHeader";
 import {
   CATEGORIES,
-  fetchFloors,
-  fetchFloorSections,
   fetchMenu,
   fetchOrderItems,
   fetchOrders,
   fetchTables,
-  getTableLabel,
   useRealtimeQuery,
-  type Floor,
-  type FloorSection,
   type MenuItem,
   type Order,
   type OrderItem,
   type TableRow,
 } from "@/lib/restaurant";
-import { Minus, Plus, Receipt, Send, Utensils, X, Search, Eye, Building2, Thermometer } from "lucide-react";
+import { Minus, Plus, Receipt, Send, Utensils, X, Search, Eye } from "lucide-react";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/waiter")({
@@ -29,189 +24,98 @@ export const Route = createFileRoute("/waiter")({
 });
 
 function WaiterPage() {
-  const { data: floors, loading: lf } = useRealtimeQuery<Floor>(fetchFloors, ["floors"]);
-  const { data: sections, loading: ls } = useRealtimeQuery<FloorSection>(fetchFloorSections, ["floor_sections"]);
-  const { data: tables, loading: lt } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
-  const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
+  const { data: tables, loading } = useRealtimeQuery<TableRow>(fetchTables, ["tables"]);
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
 
-  // Selected floor state
-  const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
-
-  // Auto-select first floor when floors load
-  useEffect(() => {
-    if (floors.length > 0 && !selectedFloorId) {
-      setSelectedFloorId(floors[0].id);
-    }
-  }, [floors, selectedFloorId]);
-
-  const loading = lf || ls || lt;
   const activeTable = tables.find((t) => t.id === activeTableId) ?? null;
-
-  // Filter sections for the selected floor
-  const floorSections = sections.filter((s) => s.floor_id === selectedFloorId);
-  const selectedFloor = floors.find((f) => f.id === selectedFloorId);
 
   return (
     <div className="min-h-screen bg-background">
-      <RoleHeader
-        role="waiter"
-        title="Floor Manager"
-        subtitle="Manage tables & order entries"
-        right={<ThemeToggle />}
-      />
+      <RoleHeader role="waiter" title="Floor Manager" subtitle="Manage tables & order entries" />
       <main className="mx-auto max-w-7xl px-6 py-8 animate-fade-up">
         {loading && <LoadingScreen role="waiter" label="Initializing table map…" />}
 
         {!loading && (
-          <div className="space-y-6">
-            {/* Floor Selector Tabs */}
-            {floors.length > 0 ? (
-              <div className="flex flex-wrap gap-2 items-center">
-                <Building2 className="h-4 w-4 text-muted-foreground/60 shrink-0" />
-                {floors.map((f) => (
+          <div>
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Seating Floor Map ({tables.length} Tables)
+              </h2>
+              <div className="flex gap-4 text-xs font-semibold">
+                <span className="flex items-center gap-1.5 text-success">
+                  <span className="pulse-dot h-2 w-2 rounded-full bg-current" />
+                  Free ({tables.filter((t) => t.status === "free").length})
+                </span>
+                <span className="flex items-center gap-1.5 text-destructive">
+                  <span className="pulse-dot h-2 w-2 rounded-full bg-current" />
+                  Occupied ({tables.filter((t) => t.status !== "free").length})
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {tables.map((t) => {
+                const free = t.status === "free";
+                return (
                   <button
-                    key={f.id}
-                    onClick={() => setSelectedFloorId(f.id)}
-                    className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 focus:outline-none ${
-                      selectedFloorId === f.id
-                        ? "bg-waiter border-transparent text-waiter-foreground shadow-sm"
-                        : "bg-secondary/40 border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
+                    key={t.id}
+                    onClick={() => setActiveTableId(t.id)}
+                    className="group relative aspect-[1.1] overflow-hidden rounded-2xl border bg-card p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg focus:outline-none"
+                    style={{
+                      borderColor: free
+                        ? "rgba(var(--success-color), 0.2)"
+                        : "rgba(var(--destructive-color), 0.2)",
+                      boxShadow: free
+                        ? "0 4px 24px rgba(0,0,0,0.15), inset 0 0 12px oklch(0.72 0.16 142 / 4%)"
+                        : "0 4px 24px rgba(0,0,0,0.15), inset 0 0 12px oklch(0.55 0.22 25 / 4%)",
+                    }}
                   >
-                    {f.name}
-                    <span className="ml-1.5 opacity-70">({f.code})</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-border/40 p-16 text-center text-muted-foreground">
-                No floors configured in the system. Add floors in the Counter Admin panel first.
-              </div>
-            )}
+                    {/* Pulsing indicator border */}
+                    <div
+                      className="absolute inset-x-0 bottom-0 h-1"
+                      style={{ background: free ? "var(--success)" : "var(--destructive)" }}
+                    />
 
-            {/* Selected Floor Content */}
-            {selectedFloor && (
-              <div className="space-y-8">
-                {floorSections.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-border/40 p-16 text-center text-muted-foreground">
-                    No active sections (AC / Non-AC) configured for{" "}
-                    <span className="font-bold text-foreground">{selectedFloor.name}</span>.
-                    Enable them in the Counter Admin panel under Table Layout.
-                  </div>
-                ) : (
-                  floorSections.map((section) => {
-                    const sectionTables = tables.filter(
-                      (t) => t.floor_id === selectedFloorId && t.is_ac === section.is_ac
-                    );
-
-                    return (
-                      <div key={section.id} className="space-y-4">
-                        {/* Section Header */}
-                        <div className="flex items-center gap-2 border-b border-border/20 pb-2">
-                          <Thermometer className="h-4 w-4 text-waiter/70" />
-                          <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground/80">
-                            {section.is_ac ? "AC" : "Non-AC"} Section ({sectionTables.length} Table
-                            {sectionTables.length !== 1 ? "s" : ""})
-                          </h3>
-                        </div>
-
-                        {/* Tables Grid */}
-                        {sectionTables.length === 0 ? (
-                          <p className="text-xs text-muted-foreground/50 py-4 pl-1">
-                            No tables configured in this section yet. Configure them in the Counter Admin panel.
-                          </p>
-                        ) : (
-                          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                            {sectionTables.map((t) => {
-                              const free = t.status === "free";
-
-                              return (
-                                <button
-                                  key={t.id}
-                                  onClick={() => setActiveTableId(t.id)}
-                                  className="group relative aspect-[1.1] overflow-hidden rounded-2xl border bg-card p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg focus:outline-none"
-                                  style={{
-                                    borderColor: free
-                                      ? "rgba(var(--success-color), 0.2)"
-                                      : "rgba(var(--destructive-color), 0.2)",
-                                    boxShadow: free
-                                      ? "0 4px 24px rgba(0,0,0,0.15), inset 0 0 12px oklch(0.72 0.16 142 / 4%)"
-                                      : "0 4px 24px rgba(0,0,0,0.15), inset 0 0 12px oklch(0.55 0.22 25 / 4%)",
-                                  }}
-                                >
-                                  {/* Status indicator bar at bottom */}
-                                  <div
-                                    className="absolute inset-x-0 bottom-0 h-1"
-                                    style={{
-                                      background: free ? "var(--success)" : "var(--destructive)",
-                                    }}
-                                  />
-
-                                  <div className="flex h-full flex-col justify-between">
-                                    <div className="flex items-center justify-between">
-                                      <Utensils className="h-4 w-4 text-muted-foreground/60" />
-                                      <span
-                                        className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border"
-                                        style={{
-                                          background: free
-                                            ? "oklch(0.72 0.16 142 / 10%)"
-                                            : "oklch(0.55 0.22 25 / 10%)",
-                                          borderColor: free
-                                            ? "var(--success)"
-                                            : "var(--destructive)",
-                                          color: free ? "var(--success)" : "var(--destructive)",
-                                        }}
-                                      >
-                                        {free ? "Free" : "Busy"}
-                                      </span>
-                                    </div>
-
-                                    <div>
-                                      {/* Full Floor/Section label */}
-                                      <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">
-                                        {selectedFloor.code}/{section.is_ac ? "AC" : "Non-AC"}
-                                      </p>
-                                      <p className="text-3xl font-black text-foreground group-hover:text-waiter transition-colors">
-                                        {t.table_number}T
-                                      </p>
-                                    </div>
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
+                    <div className="flex h-full flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <Utensils className="h-4 w-4 text-muted-foreground/60" />
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border"
+                          style={{
+                            background: free
+                              ? "oklch(0.72 0.16 142 / 10%)"
+                              : "oklch(0.55 0.22 25 / 10%)",
+                            borderColor: free ? "var(--success)" : "var(--destructive)",
+                            color: free ? "var(--success)" : "var(--destructive)",
+                          }}
+                        >
+                          {free ? "Free" : "Busy"}
+                        </span>
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
+
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                          Table
+                        </p>
+                        <p className="text-4xl font-black text-foreground group-hover:text-white transition-colors">
+                          {String(t.table_number).padStart(2, "0")}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </main>
 
-      {activeTable && (
-        <TableSheet
-          table={activeTable}
-          floors={floors}
-          onClose={() => setActiveTableId(null)}
-        />
-      )}
+      {activeTable && <TableSheet table={activeTable} onClose={() => setActiveTableId(null)} />}
     </div>
   );
 }
 
-function TableSheet({
-  table,
-  floors,
-  onClose,
-}: {
-  table: TableRow;
-  floors: Floor[];
-  onClose: () => void;
-}) {
+function TableSheet({ table, onClose }: { table: TableRow; onClose: () => void }) {
   const { data: menu } = useRealtimeQuery<MenuItem>(fetchMenu, ["menu_items"]);
   const { data: orders } = useRealtimeQuery<Order>(fetchOrders, ["orders"]);
   const { data: orderItems } = useRealtimeQuery<OrderItem>(fetchOrderItems, ["order_items"]);
@@ -222,8 +126,6 @@ function TableSheet({
   const [search, setSearch] = useState("");
   const [activeCat, setActiveCat] = useState<string>("__all__");
   const [showOrderSummary, setShowOrderSummary] = useState(false);
-
-  const tableLabel = getTableLabel(table, floors);
 
   const tableOrders = orders.filter((o) => o.table_id === table.id && o.status !== "billed");
   const tableOrderItems = orderItems.filter((oi) => tableOrders.some((o) => o.id === oi.order_id));
@@ -330,7 +232,7 @@ function TableSheet({
     setCart({});
     setHalfCart({});
     setBusy(false);
-    toast.success(`Order sent to kitchen · ${tableLabel}`);
+    toast.success(`Order sent to kitchen · Table ${table.table_number}`);
   }
 
   async function generateBill() {
@@ -345,7 +247,7 @@ function TableSheet({
       );
     await supabase.from("tables").update({ status: "free" }).eq("id", table.id);
     setBusy(false);
-    toast.success(`Bill generated · ${tableLabel} · ₹${billTotal.toFixed(2)}`);
+    toast.success(`Bill generated · ₹${billTotal.toFixed(2)}`);
     onClose();
   }
 
@@ -360,20 +262,19 @@ function TableSheet({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Dimmed backdrop */}
+      {/* Dimmed backdrop overlay */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
-      {/* Slide sheet */}
+      {/* Slide sheet sidebar */}
       <aside className="relative flex h-full w-full max-w-lg flex-col border-l border-border/40 bg-card/95 shadow-2xl backdrop-blur-xl animate-fade-up">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/40 px-6 py-4">
           <div>
-            {/* Full table label badge */}
             <span className="inline-flex items-center gap-1.5 rounded-full border border-waiter/30 bg-waiter/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-waiter">
-              {tableLabel}
+              Table {String(table.table_number).padStart(2, "0")}
             </span>
             <h2 className="mt-1 text-lg font-bold text-foreground">
               {tableOrders.length > 0 ? "Edit Seating Ticket" : "Create Order Ticket"}
@@ -436,10 +337,13 @@ function TableSheet({
             />
           </div>
 
-          {/* Category Quick Selector */}
+          {/* Category Quick Selector Scroll */}
           <div className="-mx-6 overflow-x-auto px-6">
             <div className="flex gap-2 pb-2">
-              <CategoryChip active={activeCat === "__all__"} onClick={() => setActiveCat("__all__")}>
+              <CategoryChip
+                active={activeCat === "__all__"}
+                onClick={() => setActiveCat("__all__")}
+              >
                 Full Menu
               </CategoryChip>
               {allCategories.map((cat) => (
@@ -593,13 +497,7 @@ function TableSheet({
           />
           <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-border/40 bg-card p-6 shadow-2xl animate-fade-up">
             <div className="mb-4 flex items-center justify-between border-b border-border/20 pb-3">
-              <div>
-                <h3 className="text-lg font-bold text-foreground">Confirm Order</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Dispatching to kitchen for{" "}
-                  <span className="font-bold text-waiter">{tableLabel}</span>
-                </p>
-              </div>
+              <h3 className="text-lg font-bold text-foreground">Confirm Seating Order</h3>
               <button
                 onClick={() => setShowOrderSummary(false)}
                 className="rounded-lg p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"

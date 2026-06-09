@@ -8,56 +8,6 @@ export type Database = {
   };
   public: {
     Tables: {
-      floors: {
-        Row: {
-          id: string;
-          name: string;
-          code: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          name: string;
-          code: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          name?: string;
-          code?: string;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      floor_sections: {
-        Row: {
-          id: string;
-          floor_id: string;
-          is_ac: boolean;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          floor_id: string;
-          is_ac: boolean;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          floor_id?: string;
-          is_ac?: boolean;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "floor_sections_floor_id_fkey";
-            columns: ["floor_id"];
-            isOneToOne: false;
-            referencedRelation: "floors";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       menu_items: {
         Row: {
           category: string;
@@ -167,32 +117,18 @@ export type Database = {
           id: string;
           status: string;
           table_number: number;
-          floor_id: string | null;
-          is_ac: boolean;
         };
         Insert: {
           id?: string;
           status?: string;
           table_number: number;
-          floor_id?: string | null;
-          is_ac?: boolean;
         };
         Update: {
           id?: string;
           status?: string;
           table_number?: number;
-          floor_id?: string | null;
-          is_ac?: boolean;
         };
-        Relationships: [
-          {
-            foreignKeyName: "tables_floor_id_fkey";
-            columns: ["floor_id"];
-            isOneToOne: false;
-            referencedRelation: "floors";
-            referencedColumns: ["id"];
-          },
-        ];
+        Relationships: [];
       };
     };
     Views: {
